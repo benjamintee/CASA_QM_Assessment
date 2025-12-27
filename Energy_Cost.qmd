@@ -1,0 +1,2739 @@
+---
+date: last-modified
+bibliography: References.bib
+csl: harvard-cite-them-right.csl
+title: CASA0007 Assessment Submission
+execute:
+  echo: false
+  freeze: true
+format:
+  html:
+    code-copy: true
+    code-link: true
+    toc: true
+    toc-title: On this page
+    toc-depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+  pdf:
+    include-in-header:
+      text: |
+        \addtokomafont{disposition}{\rmfamily}
+    mainfont: "Source Serif 4"
+    sansfont: "Source Sans 3"
+    monofont: "Source Code Pro"
+    papersize: a4
+    geometry:
+      - top=25mm
+      - left=40mm
+      - right=30mm
+      - bottom=25mm
+      - heightrounded
+    toc: false
+    number-sections: false
+    colorlinks: true
+    highlight-style: github
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .qmd
+      format_name: quarto
+      format_version: '1.0'
+      jupytext_version: 1.15.2
+  kernelspec:
+    display_name: Python 3 (ipykernel)
+    language: python
+    name: python3
+---
+
+## Declaration of Authorship {.unnumbered .unlisted}
+
+Date: 12 January 2026 (Tues)
+
+Student Number: 25049107
+
+I, Tee Chin Min Benjamin, pledge my honour that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work. ChatGPT has been used to sharpen the language and terms used in the article and support the development of the customized graphics used in this report.
+
+{{< pagebreak >}}
+
+```{python}
+#| label: Load common libraries and packages
+#| echo: false
+#| warning: false
+#| output: false
+import pandas as pd
+import geopandas as gpd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from matplotlib.lines import Line2D
+from pathlib import Path
+import requests
+import mapclassify
+import math
+from matplotlib.patches import Patch
+from matplotlib.ticker import FuncFormatter
+import os
+import glob
+import seaborn as sns
+import scipy.stats as stats
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+```
+
+```{python}
+#| label: Download BibTeX and csl files into the same folder if not been downloaded yet
+#| echo: false
+#| warning: false
+#| output: false
+# Name of the BibTeX and csl files
+bib_name = ["References.bib", "harvard-cite-them-right.csl"]
+
+# Folder where the .qmd file lives
+qmd_folder = Path(".").resolve()  
+
+# Raw GitHub URL
+url_bib = "https://raw.githubusercontent.com/benjamintee/CASA_QM_Assessment/refs/heads/main/References.bib"
+
+for bib in bib_name:
+    # Full path for the BibTeX/csl file
+    bib_path = qmd_folder / bib
+
+    # Download only if missing
+    if not bib_path.exists():
+        print(f"{bib_name} not found. Downloading to {bib_path} ...")
+        response = requests.get(url_bib)
+        response.raise_for_status()
+        bib_path.write_bytes(response.content)
+        print("Download complete!")
+    else:
+        print(f"{bib_name} already exists at {bib_path}")
+```
+
+```{python}
+#| label: Download EPC data and read into python
+#| echo: false
+#| warning: false
+#| output: false
+
+# Read EPC data and download the specific columns 
+base = "large/"
+cols = [
+    "POSTCODE",
+    "PROPERTY_TYPE",
+    "BUILT_FORM",
+    "CURRENT_ENERGY_EFFICIENCY",
+    "CURRENT_ENERGY_RATING",
+    "TOTAL_FLOOR_AREA",
+    "MAINHEAT_DESCRIPTION",
+    "LODGEMENT_DATE"]
+
+# Identify the files in the folder ending with .csv 
+files = sorted(glob.glob(os.path.join(base, "certificates_*.csv")))
+
+epc_parts = []
+
+# Read and compile the data 
+for f in files:
+    print(f"Reading {os.path.basename(f)}")
+
+    df = pd.read_csv(
+        f,
+        usecols=cols,
+        parse_dates=["LODGEMENT_DATE"],
+        low_memory=False
+    )
+
+    epc_parts.append(df)
+
+epc = pd.concat(epc_parts, ignore_index=True)
+
+# Clean data and set appropriate format type 
+epc["CURRENT_ENERGY_RATING"] = epc["CURRENT_ENERGY_RATING"].astype("category")
+epc["PROPERTY_TYPE"] = epc["PROPERTY_TYPE"].astype("category")
+epc["BUILT_FORM"] = epc["BUILT_FORM"].astype("category")
+
+
+# Load ONS directory to map postal codes to MSOA, LA  
+ons_pd = pd.read_csv(
+    base + "ONSPD_FEB_2024_UK.csv",
+    encoding="cp1252",
+    usecols=[
+        "pcds",     # postcode
+        "msoa21cd",   # MSOA code
+        "msoa21nm",  # MSOA name
+        "lsoa21cd",  # lsoa code
+        "lsoa21nm", # lsoa name
+        "ladcd",     # local authority code
+        "ladnm",     # local authority name
+    ],
+    low_memory=False)
+
+ons_pd = ons_pd.rename(columns={"pcds": "POSTCODE"})
+```
+
+```{python}
+#| label: Merge EPC data and aggregate at MSOA-Level 
+#| echo: false
+#| warning: false
+#| output: false
+# Merge with ONS_PD to obtain the postal mapping to MSOA and LA 
+epc_msoa = epc.merge(
+    ons_pd,
+    on="POSTCODE",
+    how="left")
+
+# Count the number of NAs and overall match rate 
+match_rate = epc_msoa["msoa21cd"].notna().mean()
+print(f"Match rate: {match_rate:.2%}")
+```
+
+```{python}
+#| label: Clean EPC data 
+#| echo: false
+#| warning: false
+#| output: false
+# Drop those without valid matches and report the drop rate 
+epc_msoa_clean = epc_msoa.dropna(subset=["msoa21cd"]).copy()
+retain_rate = len(epc_msoa_clean) / len(epc_msoa)
+
+epc_msoa_clean["epc_DG"] = (
+    epc_msoa_clean["CURRENT_ENERGY_RATING"]
+    .isin(["D", "E", "F", "G"])
+    .astype(int)
+)
+```
+
+```{python}
+#| label: Aggregate energy efficiency and share of EPC_DG 
+#| echo: false
+#| warning: false
+#| output: false
+# Aggregate energy efficiency and share of EPC_DG for MSOAs
+epc_msoa_agg = (
+    epc_msoa_clean
+    .groupby("msoa21cd")
+    .agg(
+        mean_epc_score=("CURRENT_ENERGY_EFFICIENCY", "mean"),
+        share_epc_DG=("epc_DG", "mean"),
+        n_epcs=("CURRENT_ENERGY_EFFICIENCY", "count"), 
+        median_floor_area=("TOTAL_FLOOR_AREA", "median"),
+        n_epcs_area=("TOTAL_FLOOR_AREA", "count"))
+    .reset_index())
+
+# Rename columns and align col names for merging - epc
+epc_msoa_agg = epc_msoa_agg.rename(
+    columns={"msoa21cd": "MSOA_code"}
+)
+
+# Filter for MSOAs within England only 
+epc_msoa_agg = epc_msoa_agg.loc[
+    lambda df: df["MSOA_code"].str.startswith("E")
+]
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Read in domestic gas and electricty consumption data for 2023 
+# Note: Median consumption was chosen as as it reflects a typical household’s gas use and is robust to outliers, comparable across MSOAs with different housing stocks and aligns directly with household energy burden
+base2 = "data/"
+domestic_gas_msoa = pd.read_csv(
+    base2 + "MSOA_domestic_gas_2023.csv",
+    encoding="cp1252",
+    usecols=[
+        "Local authority code",     
+        "Local authority",   
+        "MSOA code",  
+        "Middle layer super output area",     
+        "Number of meters", 
+        "Mean consumption (kWh per meter)",
+    ],
+    low_memory=False)
+
+domestic_electricity_msoa = pd.read_csv(
+    base2 + "MSOA_domestic_elec_2023.csv",
+    encoding="cp1252",
+    usecols=[
+        "Local authority code",     
+        "Local authority",   
+        "MSOA code",  
+        "Middle layer super output area",     
+        "Number of meters", 
+        "Mean consumption (kWh per meter)",
+    ],
+    low_memory=False)
+
+# Rename columns and align col names for merging - Gas
+domestic_gas_msoa = domestic_gas_msoa.rename(columns={
+    "MSOA code": "MSOA_code",
+    "Mean consumption (kWh per meter)": "mean_gas_kwh",
+    "Number of meters": "n_gas_meters"
+})
+
+# Rename columns and align col names for merging - Electricity 
+domestic_electricity_msoa = domestic_electricity_msoa.rename(columns={
+    "MSOA code": "MSOA_code",
+    "Mean consumption (kWh per meter)": "mean_elec_kwh",
+    "Number of meters": "n_elec_meters"
+})
+
+for col in ["n_gas_meters", "mean_gas_kwh"]:
+    domestic_gas_msoa[col] = (
+        domestic_gas_msoa[col]
+        .astype(str)                 
+        .str.replace(",", "", regex=False)  
+        .str.strip()
+        .replace({"": None, "–": None, "-": None})
+        .pipe(pd.to_numeric, errors="coerce")
+    )
+
+for col in ["n_elec_meters", "mean_elec_kwh"]:
+    domestic_electricity_msoa[col] = (
+        domestic_electricity_msoa[col]
+        .astype(str)                 
+        .str.replace(",", "", regex=False)  
+        .str.strip()
+        .replace({"": None, "–": None, "-": None})
+        .pipe(pd.to_numeric, errors="coerce")
+    )
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Extract matching table from ONSpd. Keep only the lookup columns and drop duplicates
+lsoa_msoa_lookup = (
+    ons_pd[["lsoa21cd", "msoa21cd"]]
+    .drop_duplicates()
+    .rename(columns={
+        "lsoa21cd": "LSOA_code",
+        "msoa21cd": "MSOA_code"
+    })
+)
+
+lsoa_postcode_counts = (
+    ons_pd
+    .groupby("lsoa21cd")
+    .size()
+    .reset_index(name="n_postcodes")
+    .rename(columns={"lsoa21cd": "LSOA_code"})
+)
+
+# Read in VO data on distribution of building age 
+buildingage_lsoa = pd.read_csv(base2 + "building_age.csv")
+buildingage_lsoa = buildingage_lsoa.rename(columns={
+    "lsoacode": "LSOA_code",
+    "dwe_p45pc": "share_post1945",
+    "dwe_p16pc": "share_post2016"
+})
+
+buildingage_merged = buildingage_lsoa.merge(lsoa_msoa_lookup, on="LSOA_code", how="left") .merge(lsoa_postcode_counts, on="LSOA_code", how="left")
+
+buildingage_merged = (
+    buildingage_merged
+    .groupby("MSOA_code")
+    .apply(lambda g: pd.Series({
+        "share_post1945": np.average(
+            g["share_post1945"], weights=g["n_postcodes"]
+        ),
+        "share_post2016": np.average(
+            g["share_post2016"], weights=g["n_postcodes"]
+        )
+    }))
+    .reset_index()
+)
+
+# Construct pre-1945 share correctly
+buildingage_merged["share_pre1945"] = 1 - buildingage_merged["share_post1945"]
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Read in ONS data on population estimates 
+population = pd.read_csv(base2 + "population.csv", encoding="cp1252", low_memory=False)
+population.iloc[:, 5:187] = (
+    population.iloc[:, 5:187]
+    .apply(pd.to_numeric, errors="coerce")
+)
+population["Total"] = (
+    population["Total"]
+    .astype(str)
+    .str.replace(",", "", regex=False)
+    .pipe(pd.to_numeric, errors="coerce")
+)
+
+# Female and male age columns 65–90
+female_65plus = [f"F{i}" for i in range(65, 91)]
+male_65plus   = [f"M{i}" for i in range(65, 91)]
+age_65plus_cols = female_65plus + male_65plus
+
+# Compute proportion aged 65 and older 
+population_65andover = (
+    population
+    .assign(
+        pop_65plus=lambda df: df[age_65plus_cols].sum(axis=1)
+    )
+    .assign(
+        share_65plus=lambda df: df["pop_65plus"] / df["Total"]
+    )
+    .loc[:, [
+        "MSOA 2021 Code",
+        "share_65plus"
+    ]]
+    .rename(columns={
+        "MSOA 2021 Code": "MSOA_code"
+    })
+)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Read in ONS data on average household size estimates
+hh_size = pd.read_csv(base2 + "TS017_2021_hhsize.csv")
+
+hh_size = hh_size.rename(columns={
+    "Middle layer Super Output Areas Code": "MSOA_code",
+    "Household size (9 categories) Code": "hh_size_code",
+    "Observation": "n_households"
+})
+
+size_map = {
+    0: 0,
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4,
+    5: 5,
+    6: 6,
+    7: 7,
+    8: 8   # "8 or more"
+}
+
+hh_df = hh_size.copy()
+hh_df["hh_size_numeric"] = hh_df["hh_size_code"].map(size_map)
+
+mean_hh_size = (
+    hh_df
+    .assign(weighted_size=lambda d: d["hh_size_numeric"] * d["n_households"])
+    .groupby("MSOA_code")
+    .apply(lambda g: g["weighted_size"].sum() / g["n_households"].sum())
+    .reset_index(name="mean_hh_size")
+)
+
+large_hh = (
+    hh_df
+    .assign(large=lambda d: d["hh_size_numeric"] >= 4)
+    .groupby("MSOA_code")
+    .apply(
+        lambda g: g.loc[g["large"], "n_households"].sum()
+        / g["n_households"].sum()
+    )
+    .reset_index(name="share_hh_4plus")
+)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# ---- Read heating data ----
+heating = pd.read_csv(
+    base2 + "TS046_2021_Renewables.csv",
+    usecols=[
+        "Middle layer Super Output Areas Code",
+        "Type of central heating in household (13 categories)",
+        "Observation"
+    ]
+)
+
+heating = heating.rename(columns={
+    "Middle layer Super Output Areas Code": "MSOA_code",
+    "Type of central heating in household (13 categories)": "heating_type",
+    "Observation": "n_households"
+})
+
+# Drop "Does not apply" if present
+heating = heating[heating["heating_type"] != "Does not apply"]
+
+# ---- Total households per MSOA (heating universe) ----
+total_households = (
+    heating
+    .groupby("MSOA_code", as_index=False)["n_households"]
+    .sum()
+    .rename(columns={"n_households": "total_households"})
+)
+
+# ---- Helper function to compute shares ----
+def heating_share(labels, name):
+    return (
+        heating.loc[heating["heating_type"].isin(labels)]
+        .groupby("MSOA_code")["n_households"]
+        .sum()
+        .rename(name)
+    )
+
+# ---- Build heating mix shares ----
+heating_groups = {
+    "gas": [
+        "Mains gas only",
+        "Tank or bottled gas only"
+    ],
+    "electric": [
+        "Electric only"
+    ],
+    "solid_liquid": [
+        "Oil only",
+        "Solid fuel only",
+        "Wood only"
+    ],
+    "low_central": [
+        "No central heating",
+        "Other central heating only"
+    ],
+    "network_renewable": [
+        "District or communal heat networks only",
+        "Renewable energy only",
+        "Two or more types of central heating (not including renewable energy)",
+        "Two or more types of central heating (including renewable energy)"
+    ]
+}
+
+heating_shares = pd.DataFrame({"MSOA_code": total_households["MSOA_code"]})
+
+for group, categories in heating_groups.items():
+    heating_shares = heating_shares.merge(
+        heating_share(categories, f"hh_{group}"),
+        on="MSOA_code",
+        how="left"
+    )
+
+# Fill missing with zero
+hh_cols = [c for c in heating_shares.columns if c.startswith("hh_")]
+heating_shares[hh_cols] = heating_shares[hh_cols].fillna(0)
+
+# ---- Convert to shares ----
+heating_shares = heating_shares.merge(
+    total_households,
+    on="MSOA_code",
+    how="left"
+)
+
+for c in hh_cols:
+    heating_shares[c.replace("hh_", "share_")] = (
+        heating_shares[c] / heating_shares["total_households"]
+    )
+
+# Keep only shares
+fuel_mix = heating_shares[
+    ["MSOA_code"] + [c for c in heating_shares.columns if c.startswith("share_")]
+]
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Read Census 2021 housing_type
+housing_type = pd.read_csv(
+    base2 + "TS044_2021_Housingtype.csv",
+    usecols=[
+        "Middle layer Super Output Areas Code",
+        "Accommodation type (8 categories)",
+        "Observation"
+    ]
+).rename(columns={
+    "Middle layer Super Output Areas Code": "MSOA_code",
+    "Accommodation type (8 categories)": "housing_type",
+    "Observation": "n_households"
+})
+
+# Define housing_type groupings
+detached_types = [
+    "Detached"
+]
+
+house_types = [
+    "Semi-detached",
+    "Terraced"
+]
+
+flats_types = [
+    "In a purpose-built block of flats or tenement"
+]
+
+nonstandard_types = [
+    "Part of a converted or shared house, including bedsits",
+    "Part of another converted building, for example, former school, church or warehouse",
+    "In a commercial building, for example, in an office building, hotel or over a shop",
+    "A caravan or other mobile or temporary structure"
+]
+
+# Aggregate in one pass
+housing_shares = (
+    housing_type
+    .assign(
+        detached=lambda df: np.where(
+            df["housing_type"].isin(detached_types),
+            df["n_households"], 0
+        ),
+        houses=lambda df: np.where(
+            df["housing_type"].isin(house_types),
+            df["n_households"], 0
+        ),
+        flats=lambda df: np.where(
+            df["housing_type"].isin(flats_types),
+            df["n_households"], 0
+        ),
+        nonstandard=lambda df: np.where(
+            df["housing_type"].isin(nonstandard_types),
+            df["n_households"], 0
+        )
+    )
+    .groupby("MSOA_code", as_index=False)
+    .agg(
+        total_households=("n_households", "sum"),
+        detached=("detached", "sum"),
+        houses=("houses", "sum"),
+        flats=("flats", "sum"),
+        nonstandard=("nonstandard", "sum")
+    )
+    .assign(
+        share_detached=lambda df: df["detached"] / df["total_households"],
+        share_houses=lambda df: df["houses"] / df["total_households"],
+        share_flats_purpose_built=lambda df: df["flats"] / df["total_households"],
+        share_nonstandard=lambda df: df["nonstandard"] / df["total_households"]
+    )
+    .loc[:, [
+        "MSOA_code",
+        "share_detached",
+        "share_houses",
+        "share_flats_purpose_built",
+        "share_nonstandard"
+    ]]
+)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Read in annual household income data for 2023 
+# Note: Household income is measured using equivalised disposable income after housing costs at MSOA level. This measure reflects the financial resources available to households after accounting for both taxes and unavoidable housing expenditures, making it appropriate for assessing vulnerability to energy costs.
+income_msoa = pd.read_csv(
+    base2 + "MSOA_income_2023.csv",
+    encoding="cp1252",
+    usecols=[
+        "Local authority code",     
+        "Local authority name",   
+        "MSOA code",  
+        "MSOA name",     
+        "Disposable (net) annual income after housing costs", 
+    ],
+    low_memory=False)
+
+# Rename columns and align col names for merging - Income
+income_msoa = income_msoa.rename(columns={
+    "MSOA code": "MSOA_code",
+    "Disposable (net) annual income after housing costs": "income_ahc"
+})
+
+for col in ["income_ahc"]:
+    income_msoa[col] = (
+        income_msoa[col]
+        .astype(str)                 
+        .str.replace(",", "", regex=False)  
+        .str.strip()
+        .replace({"": None, "–": None, "-": None})
+        .pipe(pd.to_numeric, errors="coerce")
+    )
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Load MSOA → Region lookup
+msoa_rgn = (
+    pd.read_csv(base2 + "MSOA_mapping_to_region.csv")
+    .rename(columns={"MSOA21CD": "MSOA_code", "RGN22NM": "region"})
+    [["MSOA_code", "region"]]
+)
+
+msoa_rgn["region"] = msoa_rgn["region"].replace(
+    "Yorkshire and The Humber",
+    "Yorkshire & The Humber"
+)
+
+# Load MSOA → Rural or Urban lookup
+msoa_rural = (
+    pd.read_csv(base2 + "MSOA_ruralurban.csv")
+    .rename(columns={"MSOA21CD": "MSOA_code", "Rural Urban flag": "Ruralurban"})
+    [["MSOA_code", "Ruralurban"]]
+)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Load data on percentage of domestic properties not on gas grid 
+msoa_gasgrid = (
+    pd.read_csv(base2 + "MSOA_domestic_notongasgrid.csv",
+    encoding="cp1252",
+    usecols=[
+        "MSOA code",     
+        "Middle layer super output area",   
+        "Estimated percentage of properties not  on the gas grid"])
+    .rename(columns={"MSOA code": "MSOA_code", "Estimated percentage of properties not  on the gas grid": "perc_not_gas_grid"})
+    [["MSOA_code", "perc_not_gas_grid"]])
+
+for col in ["perc_not_gas_grid"]:
+    msoa_gasgrid[col] = (
+        msoa_gasgrid[col]
+        .astype(str)                 
+        .str.replace("%", "", regex=False)  
+        .str.strip()
+        .replace({"": None, "–": None, "-": None})
+        .pipe(pd.to_numeric, errors="coerce")
+    )
+
+msoa_gasgrid["share_not_gas_grid"] = msoa_gasgrid["perc_not_gas_grid"] / 100
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Aggregate by merging all the various datasets togerher 
+msoa_agg = (
+    epc_msoa_agg
+    .merge(domestic_gas_msoa[["MSOA_code", "mean_gas_kwh", "n_gas_meters"]],
+           on="MSOA_code", how="left")
+    .merge(domestic_electricity_msoa[["MSOA_code", "mean_elec_kwh", "n_elec_meters"]],
+           on="MSOA_code", how="left")
+    .merge(buildingage_merged[["MSOA_code", "share_pre1945", "share_post1945", "share_post2016"]],
+           on="MSOA_code", how="left")
+    .merge(income_msoa[["MSOA_code", "income_ahc"]],
+           on="MSOA_code", how="left")
+    .merge(population_65andover[["MSOA_code", "share_65plus"]],
+           on="MSOA_code", how="left")
+    .merge(large_hh[["MSOA_code", "share_hh_4plus"]], on="MSOA_code", how="left")
+    .merge(mean_hh_size[["MSOA_code", "mean_hh_size"]], on="MSOA_code", how="left")
+    .merge(fuel_mix[["MSOA_code", "share_electric", "share_solid_liquid", "share_low_central", "share_network_renewable"]], on= "MSOA_code", how="left")
+    .merge(housing_shares[["MSOA_code", "share_detached", "share_flats_purpose_built"]],
+           on="MSOA_code", how="left")
+    .merge(msoa_gasgrid[["MSOA_code", "share_not_gas_grid"]],
+           on="MSOA_code", how="left")  
+    .merge(msoa_rgn[["MSOA_code", "region"]],
+           on="MSOA_code", how="left")
+    .merge(msoa_rural[["MSOA_code", "Ruralurban"]],
+           on="MSOA_code", how="left")  
+    
+)
+msoa_agg.isna().mean().sort_values()
+
+msoa_agg = (
+    msoa_agg
+    .loc[
+        (msoa_agg["n_gas_meters"] >= 30) &
+        (msoa_agg["n_elec_meters"] >= 30)
+    ]
+)
+
+# Referencing unit energy costs for gas and electricty from Ofgem.co.uk in Jan-Mar 2024, use GB average (including 5% VAT) under a standard credit assumption 
+
+Elec_single_rate_nil = 219.30
+Elec_single_rate_3100 = 1152.88
+Elec_unit_rate = round((Elec_single_rate_3100 - Elec_single_rate_nil) / 3100, 2)
+
+Gas_single_rate_nil = 127.64
+Gas_single_rate_12000 = 1064.52
+Gas_unit_rate = round((Gas_single_rate_12000 - Gas_single_rate_nil) / 12000, 2)
+
+# ── 1. Share of households with gas (meter-based, defensible) ──
+msoa_agg["share_has_gas"] = (
+    msoa_agg["n_gas_meters"] / msoa_agg["n_elec_meters"]
+).clip(0, 1)
+
+# ── 2. Convert mean consumption to per-household expectations ──
+# Electricity is (effectively) universal
+msoa_agg["mean_elec_kwh_hh"] = msoa_agg["mean_elec_kwh"]
+
+# Gas must be weighted by prevalence
+msoa_agg["mean_gas_kwh_hh"] = (
+    msoa_agg["mean_gas_kwh"] * msoa_agg["share_has_gas"]
+)
+
+
+# ── 3. Variable (usage-based) costs ──
+msoa_agg["annual_electricity_cost"] = (
+    msoa_agg["mean_elec_kwh_hh"] * Elec_unit_rate
+)
+
+msoa_agg["annual_gas_cost"] = (
+    msoa_agg["mean_gas_kwh_hh"] * Gas_unit_rate
+)
+
+# ── 4. Expected standing charges ──
+msoa_agg["annual_standing_charges"] = (
+    Elec_single_rate_nil
+    + (Gas_single_rate_nil * msoa_agg["share_has_gas"])
+)
+
+
+# ── 5. Total expected annual household energy cost ──
+msoa_agg["annual_energy_cost"] = (
+    msoa_agg["annual_electricity_cost"]
+    + msoa_agg["annual_gas_cost"]
+    + msoa_agg["annual_standing_charges"]
+)
+
+# ── 6. Energy burden (expected cost / household income) ──
+msoa_agg["energy_burden"] = (
+    msoa_agg["annual_energy_cost"] / msoa_agg["income_ahc"]
+)
+
+# ── 7. England-only filter ──
+msoa_agg = msoa_agg.loc[
+    lambda df: df["MSOA_code"].str.startswith("E")
+]
+
+# ── 8. Income scaling (for regression readability) ──
+msoa_agg["income_10k"] = msoa_agg["income_ahc"] / 10000
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# Finalising regression variables 
+msoa_agg["log_income"] = np.log(msoa_agg["income_10k"])
+msoa_agg["log_energy_burden"] = np.log(msoa_agg["energy_burden"])
+msoa_agg["log_annual_energy_cost"] = np.log(msoa_agg["annual_energy_cost"])
+msoa_agg["log_median_floor_area"] = np.log(msoa_agg["median_floor_area"])
+    
+reg_df = (
+    msoa_agg[
+        [   "MSOA_code",
+            "annual_energy_cost",
+            "annual_electricity_cost", 
+            "annual_gas_cost",
+            "share_epc_DG",
+            "log_median_floor_area",
+            "log_income",
+            "share_pre1945", 
+            "share_post1945", 
+            "share_post2016",
+            "share_detached",
+            "share_flats_purpose_built", 
+            "share_hh_4plus",
+            "share_electric",
+            "share_solid_liquid",
+            "share_low_central",
+            "share_network_renewable",
+            "region",
+            "Ruralurban"
+        ]
+    ]
+    .dropna()
+    .copy()
+)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# Load MSOA 2021 shapefile 
+msoa_gdf = gpd.read_file(
+    "large/MSOA/MSOA_2021_EW_BFE_V8.shp").to_crs(epsg=27700)
+
+# Rename column to allow for effective matching between shapefile and msoa_agg
+msoa_gdf = msoa_gdf.rename(columns={"MSOA21CD": "MSOA_code"})
+
+# Aggregate data to shapefile
+msoa_gdf_merged = (
+    msoa_gdf
+    .merge(reg_df, on="MSOA_code", how="left")) 
+
+# Load Region Dec 2023 shapefile 
+region_gdf = gpd.read_file(
+    base2 + "RGN_DEC_2023_EN_BFE.shp").to_crs(epsg=27700)
+
+# Load Greater London Area Boundary 
+gla = gpd.read_file(base2 + "London_GLA_Boundary.shp").to_crs(epsg=27700)
+
+# Load LA across GB and clip to GLA
+LA = gpd.read_file(base2 + "/LAD_DEC_2021_GB_BUC.shp").to_crs(epsg=27700)
+LA = gpd.overlay(LA, gla, how="intersection",
+    keep_geom_type=False)
+
+# Load Scottish Area Boundary 
+scotland_gdf = gpd.read_file(base2 + "Scotland boundary.shp").to_crs(epsg=27700)
+
+# Get total bounds for England 
+england_bounds = region_gdf.total_bounds
+
+# Create clipping box slightly above England
+from shapely.geometry import box
+
+scot_bounds = scotland_gdf.total_bounds
+
+clip_box = box(
+    scot_bounds[0],              # minx of Scotland
+    scot_bounds[1],              # miny of Scotland  
+    scot_bounds[2],              # maxx of Scotland
+    england_bounds[3] + 40000        # cap northward extent
+)
+
+scotland_clip = gpd.clip(scotland_gdf, clip_box)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+import pandas as pd
+from shapely.geometry import Point
+
+cities = pd.DataFrame({
+    "city": [
+        "London", "Birmingham", "Leeds", "Manchester", "Liverpool",
+        "Sheffield", "Newcastle", "Southampton", "Hull", "Oxford",
+        "Norwich", "Nottingham", "Plymouth"
+    ],
+    "x": [
+        530000, 409000, 430000, 384000, 334000,
+        435000, 424000, 442000, 509000, 451000,
+        623000, 457000, 248000
+    ],
+    "y": [
+        180000, 287000, 433000, 398000, 390000,
+        387000, 565000, 113000, 432000, 206000,
+        308000, 340000, 54000
+    ]
+})
+
+cities_gdf = gpd.GeoDataFrame(
+    cities,
+    geometry=[Point(xy) for xy in zip(cities.x, cities.y)],
+    crs="EPSG:27700"
+)
+```
+
+```         
+```
+
+## England's energy crisis is no longer about volatility - its about persistence and inequality.
+
+*Date: 12 Jan 2026*
+
+While headline energy prices have eased since 2022, household energy bills in England remain far above pre-crisis levels. What has emerged is not a short-lived shock, but a sustained financial strain. When high energy costs persist, they begin to shape household finances and regional inequalities. Understanding who is most exposed, and why, is central to designing effective energy policy that goes beyond short-term subsidies.
+
+### From shock to persistence
+
+The sharp rise in energy cost in 2022 was driven by global wholesale gas prices and exacerbated by geopolitical shocks[^1]. Since then, wholesale prices have moderated, and the government’s Energy Price Guarantee (EPG) temporarily capped household exposure at the height of the crisis[^2].
+
+[^1]: Russia-Ukraine War (<https://commonslibrary.parliament.uk/research-briefings/cbp-9714/>)
+
+[^2]: In Sep 22, then-Prime Minister Elizabeth Truss announced the implementation of an Energy Price Guarantee (EPG) which meant that a typical UK household would pay up to £2,500 a year on their energy bill for the next two years. <https://www.gov.uk/government/news/government-announces-energy-price-guarantee-for-families-and-businesses-while-urgently-taking-action-to-reform-broken-energy-market>
+
+Yet, this has not returned household costs to pre-2021 norms. Latest estimates show that the energy price cap remains around £600 (45%) higher than before the crisis ([Figure 1]{.underline}). Moreover, the cap is projected to rise again in the coming quarters[^3]. While volatility has eased, prices have settled at historically high levels.
+
+[^3]: Cornwall insights forecasts that the price cap for energy bills is expected to rise by 3.2% in 2Q26, to take into account increases in network costs for electricity. <https://www.cornwall-insight.com/press-and-media/press-release/bills-remain-stable-but-new-forecast-signals-increases-in-april/>
+
+```{python}
+#| label: Summary of data from Ofgem on the Energy Price Cap 
+#| echo: false
+#| warning: false
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
+
+df = pd.read_csv(
+    base2 + "energy_price_cap_2019_2025.csv",
+    parse_dates=["period_start", "period_end"],
+    dayfirst=True)
+
+# keep from Oct 2021 onwards
+df = df[df["period_start"] >= "2021-10-01"].copy()
+
+# sort by start then end so "latest" definitions win if duplicated
+df = df.sort_values(["period_start", "period_end"])
+
+# if there are duplicate period_start dates, keep the last one
+df = df.drop_duplicates(subset=["period_start"], keep="last").reset_index(drop=True)
+
+# X: all start dates + final endpoint (forecast end)
+x_step = list(df["period_start"])
+x_step.append(df["period_end"].iloc[-1])  # extend to last period end
+
+# Applied series: hold last value to the end
+y_applied = df["cap_applied"].astype(float).tolist()
+y_applied.append(y_applied[-1])
+
+# Counterfactual: only show during EPG, otherwise NaN
+y_cf = df["cap_level"].where(df["cap_type"].eq("EPG")).astype(float).tolist()
+y_cf.append(y_cf[-1])  # hold last cf value (will be NaN if last isn't EPG)
+```
+
+```{python}
+#| lst-label: Figure 1 - Recent trends in energy prices
+#| echo: false
+#| warning: false
+fig, ax = plt.subplots(figsize=(8, 5))
+
+# Set time frame for Energy price Guarantee 
+epg_start = pd.Timestamp("2022-10-01")
+epg_end   = pd.Timestamp("2023-06-30")
+
+# Build x-range for shading
+x_epg = pd.to_datetime([
+    epg_start,
+    epg_end
+])
+
+# Shade from £0 to £2,500
+ax.fill_between(
+    x_epg,
+    y1=0,
+    y2=2500,
+    step="post",
+    color="#4b1f2a",
+    alpha=0.08,
+    zorder=0
+)
+
+ax.step(
+    x_step, y_applied,
+    where="post",
+    color="#4b1f2a",
+    linewidth=2.8,
+    label="Price cap (applied)"
+)
+
+ax.step(
+    x_step, y_cf,
+    where="post",
+    color="#a24d5f",
+    linewidth=2.2,
+    linestyle=":",
+    label="Price cap (counterfactual)"
+)
+# Counterfactual values at boundaries
+cf_oct22 = df.loc[df["period_start"] == epg_start, "cap_level"].iloc[0]
+cf_jun23 = df.loc[df["period_start"] == pd.Timestamp("2023-04-01"), "cap_level"].iloc[0]
+
+# Applied cap level during EPG
+applied_epg = 2500
+
+ax.vlines(
+    epg_start,
+    ymin=applied_epg,
+    ymax=cf_oct22,
+    colors="#a24d5f",
+    linestyles=":",
+    linewidth=2
+)
+
+ax.vlines(
+    epg_end,
+    ymin=applied_epg,
+    ymax=cf_jun23,
+    colors="#a24d5f",
+    linestyles=":",
+    linewidth=2
+)
+
+# Axes formatting
+ax.set_xlim(pd.Timestamp("2021-10-01"), pd.Timestamp("2026-07-01"))
+ax.set_ylim(0, 4500)
+ax.yaxis.set_major_locator(mticker.MultipleLocator(1000))
+ax.yaxis.set_major_formatter(lambda v, _: f"£{int(v):,}")
+
+# ticks every 6 months (Apr & Oct)
+ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[4, 10]))
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %y"))
+ax.tick_params(axis="x", labelsize=12)
+
+ax.grid(axis="y", color="#dddddd", linewidth=0.8)
+ax.grid(axis="x", visible=False)
+ax.set_ylabel("Annual bill equivalent (£)", fontsize=12)
+
+# Label the Price Cap line
+ax.text(
+    pd.Timestamp("2025-02-01"), 
+    2000,
+    "Price Cap",
+    color="#4b1f2a",
+    fontsize=12,
+    fontweight="bold",
+    va="center"
+)
+
+# Label the Energy Price Guarantee
+ax.text(
+    epg_start + pd.Timedelta(days=135),
+    1600,
+    "EPG active\n"
+    "(set max prices\n"
+    "Oct 22–Jun 23)",
+    fontsize=10,
+    ha="center",
+    va="top",
+    color="#4b1f2a"
+)
+
+# Label counterfactual price gap 
+ax.text(
+    pd.Timestamp("2023-05-01"),
+    3550,
+    "Price Cap\n"
+    "(not implemented\n"
+    "as above EPG)",
+    fontsize=11,
+    ha="left",
+    va="bottom",
+    color="#a24d5f"
+)
+
+# Label current levels 
+ax.annotate(
+    "Current \n= £1,755",
+    xy=(pd.Timestamp("2025-10-01"), 1700),   # point TO line
+    xytext=(pd.Timestamp("2025-10-01"), 1400),  # text BELOW
+    ha="center",
+    va="top",
+    fontsize=11,
+    color="#4b1f2a",
+    arrowprops=dict(
+        arrowstyle="-|>",
+        color="#4b1f2a",
+        linewidth=1.2
+    )
+)
+# Label crisis jump 
+ax.annotate(
+    "Apr-22 \n54% increase",
+    xy=(pd.Timestamp("2022-04-01"), 2000),   # point TO 
+    xytext=(pd.Timestamp("2022-04-01"), 2500),  # text ABOVE
+    ha="center",
+    va="bottom",
+    fontsize=11,
+    color="#4b1f2a",
+    arrowprops=dict(
+        arrowstyle="-|>",
+        color="#4b1f2a",
+        linewidth=1.2
+    )
+)
+
+# Mention projected increase
+ax.annotate(
+    "Proj 3.2%\nincrease in\nApr 26",
+    xy=(pd.Timestamp("2026-04-01"), 1800),   
+    xytext=(pd.Timestamp("2026-04-01"), 2200),  
+    ha="center",
+    va="bottom",
+    fontsize=11,
+    color="#4b1f2a",
+    arrowprops=dict(
+        arrowstyle="-|>",
+        color="#4b1f2a",
+        linewidth=1.2
+    )
+)
+
+# Titles & caption
+fig.suptitle(
+    "Figure 1: The energy price cap has moderated from the period of Energy\n"
+    "Price Guarantee (EPG), but remains elevated relative to pre-crisis levels",
+    x=0.01, y=0.95,
+    ha="left",
+    fontsize=14,
+    fontweight="bold"
+)
+
+fig.text(
+    0.01, -0.10,
+    "Source: Ofgem, Cornwall Insights. The energy price cap is the maximum amount energy\n"
+    "suppliers can charge households on a standard variable tariff. Price cap based on typical\n" 
+    "household energy use.",
+    fontsize=11,
+    ha="left"
+)
+
+for spine in ["top", "left", "right"]:
+    ax.spines[spine].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+This persistence places growing pressure on households. Average levels of energy debt and the number of households in arrears have risen sharply since 2021 ([Figure 2]{.underline}), suggesting that many have been unable to absorb higher costs through behavioural adjustments or savings alone.
+
+```{python}
+#| lst-label: Figure 2 - Average levels of energy debt and rising number of households in arrears
+#| echo: false
+#| warning: false
+# Plot figures for energy debt 
+# Consistent colour palette
+COL_ELEC = "#4b1f2a"   # main dark
+COL_GAS  = "#a24d5f"   # lighter accent
+
+# Define helper function to clean columns from Ofgem data 
+def parse_quarter(q):
+    qtr, year = q.split()
+    q_num = int(qtr.replace("Q", ""))
+    
+    # Map quarters to start months (Ofgem-style cadence)
+    month_map = {1: 1, 2: 4, 3: 7, 4: 10}
+    return pd.Timestamp(year=int(year), month=month_map[q_num], day=1)
+
+# Load data 
+def load_quarter_data(path):
+    df = pd.read_csv(path)
+    
+    # Rename first column to something usable
+    df = df.rename(columns={df.columns[0]: "quarter"})
+    
+    # Parse quarter-year to datetime
+    df["date"] = df["quarter"].apply(parse_quarter)
+    
+    # Filter to Oct 2021 – Oct 2025
+    df = df[
+        (df["date"] >= "2021-10-01") &
+        (df["date"] <= "2025-10-01")
+    ].sort_values("date")
+    
+    return df
+
+# Read CSV files 
+df_debt = load_quarter_data(r"data/average-level-of-debt-norepay.csv")
+df_arrears = load_quarter_data(r"data/number-of-accounts-in-arrears.csv")
+
+fig, axes = plt.subplots(
+    1, 2,
+    figsize=(8, 5),
+    sharey= False
+)
+
+def plot_panel(ax, df, title):
+    ax.plot(
+        df["date"],
+        df["Electricity"],
+        color=COL_ELEC,
+        linewidth=2.5, 
+        label="Electricity"
+    )
+    
+    ax.plot(
+        df["date"],
+        df["Gas"],
+        color=COL_GAS,
+        linewidth=2.5,
+        linestyle="--", 
+        label="Gas"
+    )
+    
+    ax.set_title(title, fontsize=13, loc="center")
+    
+    ax.grid(axis="y", color="#dddddd", linewidth=0.8, alpha=0.7)
+    ax.grid(axis="x", visible=False)
+
+    ax.legend(
+        loc="upper right",
+        frameon=False,
+        fontsize=12,
+        ncol=1
+    )
+    
+    for spine in ["top", "right", "left"]:
+        ax.spines[spine].set_visible(False)
+
+# Plot data 
+plot_panel(
+    axes[0],
+    df_debt,
+    "Average level of debt\n(no repayment arrangement)"
+)
+
+plot_panel(
+    axes[1],
+    df_arrears,
+    "No. of accounts in arrears\n(no repayment arrangement)"
+)
+
+# Set figure axes 
+for ax in axes:
+    ax.set_xlim(pd.Timestamp("2021-10-01"), pd.Timestamp("2025-10-01"))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=[4, 10]))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %y"))
+    ax.tick_params(axis="x", labelrotation=30, labelsize=11, pad=5)
+    ax.tick_params(axis="y", labelsize=12)
+    ax.tick_params(axis="y", length=0)
+    
+# Left panel: £ values
+axes[0].yaxis.set_major_formatter(lambda v, _: f"£{int(v):,}")
+axes[0].set_ylim(500, 2100)
+axes[0].set_yticks([500, 800, 1100, 1400, 1700, 2000])
+
+# Right panel: counts
+def k_m_formatter(x, pos):
+    if x >= 1_000_000:
+        return f"{x/1_000_000:.1f}M"
+    elif x >= 1_000:
+        return f"{int(x/1_000)}k"
+    else:
+        return str(int(x))
+
+axes[1].yaxis.set_major_formatter(mticker.FuncFormatter(k_m_formatter))
+axes[1].set_ylim(500_000, 1_300_000)
+axes[1].set_yticks([500_000, 650_000,800_000,950_000,1_100_000,1_250_000])
+
+# Set Figure title and source text 
+fig.suptitle(
+    "Figure 2: Average debt levels and no. of households in arrears are at\n"
+    "an all-time high, suggesting that many households are unable to fully\n"
+    "absorb higher costs through short-term adjustments alone.",
+    x=0.01, y=0.96,
+    ha="left",
+    fontsize=14,
+    fontweight="bold"
+)
+
+fig.text(
+    0.01, -0.02,
+    "Source: Ofgem data. Information accurate as of Dec 2025.",
+    ha="left",
+    fontsize=11
+)
+
+plt.tight_layout(rect=[0, 0, 1, 0.98])
+plt.show()
+```
+
+While the impact is most acute for lower-income households, higher energy costs are also squeezing the broad-middle. At least 15% of middle-income households now report struggling to heat their homes adequately[^4]. It is therefore unsurprising that energy costs remain at the top of public concerns. A March 2025 IPSOS UK survey[^5] found that close to nine in ten respondents (88%) were worried about the price households pay for home energy — a figure unchanged since the height of the crisis ([Figure 3]{.underline}).
+
+[^4]: Analysis by Joseph Rowntree Foundation using data from Family Resources Survey 2023/2024, Department for Work and Pensions. <https://www.jrf.org.uk/cost-of-living/energy-affordability-how-to-reduce-bills-for-majority-of-households>
+
+[^5]: <https://www.ipsos.com/en-uk/almost-nine-ten-britons-are-concerned-about-energy-prices>
+
+```{python}
+#| lst-label: Figure 3 - Sentiment data on energy burden
+#| echo: false
+#| warning: false
+# Read CSV files 
+df_frs = pd.read_csv(base2 + "FRS_KeepWarm.csv")
+df_ipsos = pd.read_csv(base2 + "ipsos.csv")
+df_frs = df_frs.rename(columns={"Proportion of families that cannot keep home adequately warm ": "Proportion"})
+
+# Figure setup
+fig, (ax1, ax2) = plt.subplots(
+    1, 2,
+    figsize=(8, 5),
+    gridspec_kw={"width_ratios": [1.1, 1]}
+)
+
+fig.suptitle(
+    "Figure 3: Higher energy costs are experienced by households across all\n"
+    "incomes and remain a major public concern in England",
+    x=0.01, y=0.99,
+    ha="left",
+    fontsize=14,
+    fontweight="bold"
+)
+
+fig.text(
+    0.26, 0.80,
+    "More than 15% of middle-income households\nreported difficulty in keeping homes warm",
+    ha="center",
+    va="bottom",
+    fontsize=12.5
+)
+
+fig.text(
+    0.75, 0.80,
+    "Close to 9 in 10 families surveyed reflect\nconcern over the price of energy",
+    ha="center",
+    va="bottom",
+    fontsize=12.5
+)
+
+fig.text(
+    0.01, -0.01,
+    "Source: Family Resources Survey, 2023/24, Department for Work and Pensions; Ipsos UK",
+    ha="left",
+    fontsize=11
+)
+
+# LEFT PANEL — FRS (adjusted)
+ax1.axhline(
+    y=15,
+    color="#7a7a7a",
+    linestyle=":",
+    linewidth=2,
+    zorder=0
+)
+
+ax1.bar(
+    df_frs["Decile"],
+    df_frs["Proportion"] * 100,
+    color="#4b1f2a"
+)
+
+ax1.set_ylabel("Proportion of households (%)", fontsize=12)
+
+ax1.set_ylim(0, 23.5)
+ax1.set_yticks(np.arange(0, 25, 5))
+
+ax1.set_xticks(range(1, 11))
+ax1.set_xticklabels(
+    ["Lowest\nincome\ndecile", "2", "3", "4", "5", "6", "7", "8", "9", "Highest\nincome\ndecile"],
+    fontsize=9
+)
+
+ax1.tick_params(axis="y", labelsize=10)
+
+ax1.grid(axis="y", visible=False)
+ax1.grid(axis="x", visible=False)
+ax1.set_axisbelow(True)
+
+ax1.spines["top"].set_visible(False)
+ax1.spines["right"].set_visible(False)
+ax1.spines["left"].set_visible(False)
+ax1.spines["bottom"].set_color("#bdbdbd")
+ax1.spines["bottom"].set_linewidth(0.8)
+
+# RIGHT PANEL — Ipsos Survey findings
+periods = df_ipsos["Period"]
+
+very = df_ipsos["Proportion_very_concerned"] * 100
+somewhat = df_ipsos["Proportion_somewhat_concerned"] * 100
+neutral = df_ipsos["Proportion_neutral"] * 100
+not_concerned = df_ipsos["Proportion_not_concerned"] * 100
+
+y = np.arange(len(periods))
+bar_h = 0.62
+
+ax2.barh(y, very, height=bar_h, color="#c95c78", label="Very concerned")
+ax2.barh(y, somewhat, left=very, height=bar_h, color="#efb4c2", label="Fairly concerned")
+ax2.barh(y, neutral, left=very + somewhat, height=bar_h, color="#dfeeee")
+ax2.barh(y, not_concerned, left=very + somewhat + neutral,
+         height=bar_h, color="#9ec7c3", label="Not concerned")
+
+for i in range(len(y)):
+
+    # Skip labels for Mar-21
+    if periods.iloc[i].strip() == "Mar-21":
+        continue
+    ax2.text(
+        very[i] / 2, y[i], f"{int(very[i])}%",
+        ha="center", va="center",
+        fontsize=13, color="white", fontweight="bold"
+    )
+    ax2.text(
+        very[i] + somewhat[i] / 2, y[i], f"{int(somewhat[i])}%",
+        ha="center", va="center",
+        fontsize=11, color="#333333", fontweight="bold"
+    )
+    ax2.text(
+        very[i] + somewhat[i] + neutral[i] + not_concerned[i] / 2,
+        y[i], f"{int(not_concerned[i])}%",
+        ha="center", va="center",
+        fontsize=11, color="#2f4f4f", fontweight="bold"
+    )
+
+ax2.set_yticks(y)
+ax2.set_yticklabels(periods, fontsize=10)
+ax2.invert_yaxis()
+ax2.tick_params(axis='y', which='both', length=0)
+
+# Visually hide the "Mar-21" y-axis label
+for label in ax2.get_yticklabels():
+    if label.get_text().strip() == "Mar-21":
+        label.set_color("white")
+
+ax2.set_xlim(0, 100)
+ax2.set_xlabel("Share of respondents (%)", fontsize=12)
+
+ax2.grid(axis="x", visible=False)
+ax2.grid(axis="y", visible=False)
+ax2.set_axisbelow(True)
+
+ax2.spines["top"].set_visible(False)
+ax2.spines["right"].set_visible(False)
+ax2.spines["left"].set_visible(False)
+ax2.spines["bottom"].set_color("#bdbdbd")
+ax2.spines["left"].set_linewidth(0.8)
+ax2.spines["bottom"].set_linewidth(0.8)
+
+handles, labels = ax2.get_legend_handles_labels()
+fig.legend(
+    handles,
+    labels,
+    loc="upper right",
+    bbox_to_anchor=(0.965, 0.78),  # figure coordinates
+    ncol=2,
+    frameon=False,
+    fontsize=11,
+    handlelength=1.5
+)
+
+# Final layout 
+plt.tight_layout(rect=[0, 0.02, 1, 0.99])
+plt.show()
+```
+
+### Exposure to high energy costs is uneven across England
+
+Although household energy prices are nationally regulated, the costs households face are far from uniform leading to unequal outcomes. Average bills depend not only on prices, but on how much energy households consume and how efficiently their homes convert energy into power.
+
+As a result, some households face persistently high energy costs because they live in larger, older or less efficient homes, rely on more expensive heating systems, or have limited scope to reduce consumption. These differences reflect structural characteristics of housing rather than short-term behavioural choices alone.
+
+[Figure 4]{.underline} illustrates this uneven exposure by mapping average household energy costs across England. Higher costs are concentrated across much of the North and Midlands, and parts of the South Coast, while lower average costs are more common in parts of the Southwest and East. There is also substantial variation within regions and cities, indicating that exposure to high energy cost is shaped by local housing conditions and energy use patterns rather than geography alone.
+
+This raises a key question: **if prices are broadly similar, why does its impact differ so sharply, and what does that imply for equitable energy policy?**
+
+```{python}
+#| lst-label: Figure 4 - Geographical distribution of Energy Burden 
+#| echo: false
+#| warning: false
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib_scalebar.scalebar import ScaleBar
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib.patches import Circle
+import matplotlib.patheffects as pe
+
+# Colour map & bins
+colors = ["#f7efe7", "#efc7b0", "#d88c73", "#a24d5f", "#4b1f2a"]
+colors_rgba = [mpl.colors.to_rgba(c, alpha=0.85) for c in colors]
+cmap = ListedColormap(colors_rgba)
+
+# Cost bins (£ per household per year)
+bins = [
+    0,
+    1600,
+    1900,
+    2200,
+    2500,
+    msoa_gdf_merged["annual_energy_cost"].max()
+]
+norm = BoundaryNorm(bins, ncolors=cmap.N)
+
+# Figure
+fig, ax = plt.subplots(figsize=(8, 9))
+
+# Plot scotland area 
+scotland_clip.plot(
+    ax=ax,
+    color="#e4e4e4",
+    linewidth=0,
+    zorder=0)
+
+# Wales + NA MSOAs (grey)
+msoa_gdf.loc[
+    ~msoa_gdf["MSOA_code"].str.startswith("E")
+].plot(ax=ax, color="#e4e4e4", linewidth=0, zorder=1)
+
+msoa_gdf_merged.loc[
+    msoa_gdf_merged["annual_energy_cost"].isna()
+].plot(ax=ax, color="#e4e4e4", linewidth=0, zorder=1)
+
+# England MSOAs (data)
+msoa_gdf_merged.loc[
+    msoa_gdf_merged["annual_energy_cost"].notna()
+].plot(
+    column= "annual_energy_cost",
+    ax=ax,
+    cmap=cmap,
+    norm=norm,
+    linewidth=0,
+    zorder=2
+)
+
+# Region boundaries & coastline
+region_gdf.boundary.plot(
+    ax=ax,
+    linewidth=1,
+    edgecolor="#2b2b2b",
+    alpha=0.95,
+    zorder=3
+)
+
+msoa_gdf.loc[
+    msoa_gdf["MSOA_code"].str.startswith("E")
+].dissolve().boundary.plot(
+    ax=ax,
+    linewidth=0.6,
+    edgecolor="#2b2b2b",
+    zorder=4
+)
+
+# City markers
+cities_gdf.plot(
+    ax=ax,
+    color="white",
+    edgecolor="black",
+    linewidth=0.6,
+    markersize=35,
+    zorder=6
+)
+
+# City labels (with white halo)
+for _, row in cities_gdf.iterrows():
+    ax.text(
+        row.geometry.x + 6000,
+        row.geometry.y + 6000,
+        row["city"],
+        fontsize=10,
+        color="black",
+        zorder=7,
+        path_effects=[
+            pe.withStroke(linewidth=3, foreground="white")
+        ]
+    )
+
+# London inset (TOP RIGHT)
+london_msoa = gpd.overlay(msoa_gdf_merged, gla, how="intersection",
+    keep_geom_type=False)
+
+axins = ax.inset_axes(
+    [0.76, 0.66, 0.28, 0.28],   
+    transform=ax.transAxes
+)
+
+for spine in axins.spines.values():
+    spine.set_linewidth(1.2)
+    spine.set_edgecolor("black")
+
+london_msoa[london_msoa["annual_energy_cost"].isna()].plot(
+    ax=axins, color="#e4e4e4", linewidth=0
+)
+
+london_msoa[london_msoa["annual_energy_cost"].notna()].plot(
+    column="annual_energy_cost",
+    ax=axins,
+    cmap=cmap,
+    norm=norm,
+    linewidth=0
+)
+
+LA.boundary.plot(
+    ax=axins,
+    linewidth=0.3,
+    edgecolor="black",
+    zorder=3
+)
+
+gla.boundary.plot(
+    ax=axins,
+    linewidth=1.2,
+    edgecolor="black"
+)
+axins.set_xticks([])
+axins.set_yticks([])
+axins.set_aspect("equal")
+axins.text(
+    0.5, -0.05,
+    "London",
+    transform=axins.transAxes,
+    ha="center",
+    va="top",
+    fontsize=12,
+    fontweight="bold"
+)
+
+# Colour bar (BOTTOM RIGHT)
+cax = fig.add_axes([0.50, 0.08, 0.42, 0.022])
+
+cbar = mpl.colorbar.ColorbarBase(
+    cax,
+    cmap=cmap,
+    norm=norm,
+    orientation="horizontal",
+    ticks=[0, 1600, 1900, 2200, 2500]
+)
+
+# Tick labels (including extremes)
+cbar.ax.set_xticklabels(
+    ["0", "£1,600", "£1,900", "£2,200", "£2,500+"],
+    fontsize=12
+)
+
+# Move label ABOVE the bar
+cbar.set_label(
+    "Average annual household energy cost (£)",
+    fontsize=13,
+    fontweight="bold",
+    labelpad= 8
+)
+cbar.ax.xaxis.set_label_position("top")
+
+# Titles & caption
+fig.suptitle(
+    "Figure 4: The burden of higher average household energy costs \nvaries widely across England",
+    x=0.01, y=0.95,
+    ha="left",
+    fontsize=16,
+    fontweight="bold"
+)
+
+fig.text(
+    0.01, -0.02,
+    "Notes: Average annual household energy costs combine gas and electricity expenditure at MSOA level.\n"
+    "Energy consumption based on DESNZ sub-national statistics; prices follow Ofgem tariff caps.\n"
+    "MSOAs with insufficient records and areas outside England are shown in grey.",
+    fontsize=11,
+    ha="left"
+)
+
+ax.axis("off")
+plt.show()
+```
+
+### What drives differences in household energy costs?
+
+To explore these drivers, we estimate a multivariate model that relates average household energy costs to building age and energy efficiency, dwelling characteristics, household composition and heating infrastructure, while controlling for regional differences. We aim to identify which structural factors are most strongly associated with persistently high energy costs.
+
+Results are summarised in [Table 1]{.underline}. Three findings stand out.
+
+1.  **Housing energy inefficiency is a central driver of high costs**. Areas with a higher share of energy-inefficient homes (EPC bands D-G), face significantly higher annual energy costs, even after accounting for income and other housing characteristics. Poor insulation and inefficient heating systems amplify the associated increase of high prices, meaning that households in these homes pay more regardless of their income position. Housing inefficiency does not merely coincide with low incomes; it actively magnifies exposure to high energy prices.
+2.  **Housing form and household composition matter**. Older and larger dwellings, detached housing and areas with more large households all face higher energy costs, reflecting greater baseline energy needs. These factors help explain why some higher-income areas still experience high absolute cost: higher incomes often coincide with larger, more energy-intensive homes.
+3.  **Income shapes households’ capacity to absorb energy costs rather than costs alone**. Higher incomes are associated with higher energy consumption and higher costs, but they also provide greater financial resilience. In contrast, areas characterised by lower incomes have far less scope to accommodate rising costs, particularly where poor housing efficiency or heating systems push cost
+
+| Structural factor (MSOA-level) | Modelled change in annual energy cost (per HH) |
+|--------------------------------------------|----------------------------|
+| +10pp share of households with 4+ people | ≈ +£170 |
+| +10% increase in median floor area of homes | ≈ +£65-75 |
+| +10pp share of EPC D–G homes | ≈ +£50–65 |
+| +10pp share of detached homes | ≈+£50-60 |
+| +10% increase in household income | ≈+£50-55 |
+| +10pp share of pre-1945 housing | ≈+£15-20 |
+
+*Note: Estimates are based on the preferred OLS specification controlling for housing characteristics, heating mix, urban–rural status and region. Effects are indicative averages and reflect associations rather than causal impact*.
+
+These findings explain why financial pressure extends beyond the lowest-income groups. A substantial share of middle-income households report struggling with energy bills not solely because they consume unusually large amounts of energy, but because structural features expose them to persistently high costs. In equity terms, households with similar incomes can face different energy pressures depending on where and how they live.
+
+### Why place still matters
+
+Even after accounting for income, housing characteristics and heating systems, some spatial variation in energy costs remains. This reflects localised differences in heating infrastructure, housing stock composition and settlement patterns that shape how households experience nationally regulated energy prices.
+
+[Figure 5]{.underline} shows how the influence of income and energy efficiency vary across England. In some areas, higher incomes are closely associated with higher energy costs, reflecting consumption linked to larger or more energy-intensive homes. In others, income plays a much weaker role. In contrast, the cost penalty associated with poor housing efficiency is uneven, with inefficient homes driving higher cost in some places but less so in others.
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+# Prepare data for Geographically Weighted Regression 
+from mgwr.sel_bw import Sel_BW
+from mgwr.gwr import GWR
+
+msoa_gdf_valid = msoa_gdf_merged.loc[
+    ~msoa_gdf_merged["annual_energy_cost"].isna()
+].copy()
+
+X_cols = [
+    "share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income", 
+    "share_detached", "share_hh_4plus"
+]
+
+df = msoa_gdf_valid.loc[
+    msoa_gdf_valid["annual_energy_cost"].notna(),
+    ["annual_energy_cost"] + X_cols
+].copy()
+
+coords = np.column_stack([
+    msoa_gdf_valid.geometry.centroid.x.values,
+    msoa_gdf_valid.geometry.centroid.y.values
+])
+
+y = df["annual_energy_cost"].values.reshape(-1, 1)
+X = df[X_cols].values
+
+# 3. Standardize your variables 
+X_mean = X.mean(axis=0)
+X_std  = X.std(axis=0)
+
+X_stdzd = (X - X_mean) / X_std
+
+# 4. Select the optimal bandwidth (using AICc)
+selector = Sel_BW(
+    coords,
+    y,
+    X_stdzd,
+    fixed=False,        
+    kernel="bisquare",
+    spherical=False
+)
+
+# 5. Fit the GWR model
+gwr_model = GWR(
+    coords,
+    y,
+    X_stdzd,
+    bw=150,
+    fixed=False,
+    kernel="bisquare",
+    spherical=False,
+    n_jobs=1
+)
+
+gwr_results = gwr_model.fit()
+
+print(gwr_results.summary())
+```
+
+```{python}
+#| lst-label: Figure 5 - Geospatially Weighted Regression (GWR)
+#| echo: false
+#| warning: false
+import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
+
+# Map Coeffeicient names to GWR coefficients 
+coef_names = [
+    "beta_intercept",
+    "beta_pre1945",
+    "beta_epcDG",
+    "beta_floor_area",
+    "beta_income",
+    "beta_detached",
+    "beta_hh_4plus"
+]
+
+coef_df = pd.DataFrame(
+    gwr_results.params,
+    columns=coef_names,
+    index=reg_df.index
+)
+
+for c in coef_names:
+    msoa_gdf_valid[c] = coef_df[c]
+
+raw_income = msoa_gdf_valid["beta_income"]
+raw_epc    = msoa_gdf_valid["beta_epcDG"]
+
+lo_inc, hi_inc = raw_income.quantile([0.125, 0.875])
+lo_epc, hi_epc = raw_epc.quantile([0.125, 0.875])
+
+msoa_gdf_valid["beta_income_clip"] = raw_income.clip(lo_inc, hi_inc)
+msoa_gdf_valid["beta_epcDG_clip"] = raw_epc.clip(lo_epc, hi_epc)
+
+# 1. Standard, policy-relevant colour scales
+
+# Income: sequential (uniformly positive)
+income_norm = Normalize(vmin=lo_inc, vmax=hi_inc)
+
+# EPC inefficiency: sequential (uniformly positive)
+epc_norm = Normalize(vmin=lo_epc, vmax=hi_epc)
+
+# 2. Figure layout
+fig, axes = plt.subplots(1, 2, figsize=(8, 6))
+
+plt.subplots_adjust(
+    wspace=0.08,
+    top= 0.98,
+    bottom=0.1
+)
+
+# LEFT — Income effect (BLUES)
+ax0 = axes[0]
+
+# Plot scotland area 
+scotland_clip.plot(
+    ax=ax0,
+    color="#e4e4e4",
+    linewidth=0,
+    zorder=0)
+
+msoa_gdf.loc[
+    ~msoa_gdf["MSOA_code"].str.startswith("E")
+].plot(ax=ax0, color="#e4e4e4", linewidth=0, zorder=1)
+
+msoa_gdf_merged.loc[
+    msoa_gdf_merged["annual_energy_cost"].isna()
+].plot(ax=ax0, color="#e4e4e4", linewidth=0, zorder=1)
+
+msoa_gdf_valid.plot(
+    column="beta_income_clip",
+    cmap="Blues",
+    alpha = 0.90,
+    norm=income_norm,
+    linewidth=0,
+    ax=ax0
+)
+
+region_gdf.boundary.plot(
+    ax=ax0,
+    linewidth=0.6,
+    color="#2b2b2b"
+)
+
+ax0.axis("off")
+
+# Explanatory text (income)
+fig.text(
+    0.25, 0.82,
+    "Where higher incomes translate into \nlarger increases in energy use",
+    ha="center",
+    va="bottom",
+    fontsize=13
+)
+
+# Colourbar (income)
+cax0 = fig.add_axes([0.25, 0.12, 0.25, 0.03])
+cb0 = plt.colorbar(
+    plt.cm.ScalarMappable(norm=income_norm, cmap="Blues"),
+    cax=cax0,
+    orientation="horizontal"
+)
+cb0.set_label(
+    "£ change in annual energy cost\n(per 1 SD increase in income)",
+    fontsize=9.5
+)
+cb0.ax.tick_params(labelsize=9)
+
+# RIGHT — EPC inefficiency (REDS)
+ax1 = axes[1]
+
+# Plot scotland area 
+scotland_clip.plot(
+    ax=ax1,
+    color="#e4e4e4",
+    linewidth=0,
+    zorder=0)
+
+msoa_gdf.loc[
+    ~msoa_gdf["MSOA_code"].str.startswith("E")
+].plot(ax=ax1, color="#e4e4e4", linewidth=0, zorder=1)
+
+msoa_gdf_merged.loc[
+    msoa_gdf_merged["annual_energy_cost"].isna()
+].plot(ax=ax1, color="#e4e4e4", linewidth=0, zorder=1)
+
+msoa_gdf_valid.plot(
+    column="beta_epcDG_clip",
+    cmap="Reds",
+    alpha = 0.92, 
+    norm=epc_norm,
+    linewidth=0,
+    ax=ax1
+)
+
+region_gdf.boundary.plot(
+    ax=ax1,
+    linewidth=0.6,
+    color="#2b2b2b"
+)
+
+ax1.axis("off")
+
+# Explanatory text (EPC)
+fig.text(
+    0.75, 0.82,
+    "Where housing inefficiency most strongly \namplifies energy costs",
+    ha="center",
+    va="bottom",
+    fontsize=13
+)
+
+# Colourbar (EPC)
+cax1 = fig.add_axes([0.74, 0.12, 0.25, 0.03])
+cb1 = plt.colorbar(
+    plt.cm.ScalarMappable(norm=epc_norm, cmap="Reds"),
+    cax=cax1,
+    orientation="horizontal"
+)
+cb1.set_label(
+    "£ change in annual energy cost\n(per 1 SD increase in EPC D–G share)",
+    fontsize=9.5
+)
+cb1.ax.tick_params(labelsize=9)
+
+# Set Figure title and source text 
+fig.suptitle(
+    "Figure 5: Mapping spatial heterogeneity in the mechanisms driving \nhousehold energy costs",
+    x=0.01, y=0.96,
+    ha="left",
+    fontsize=14,
+    fontweight="bold"
+)
+
+fig.text(
+    0.01, -0.04,
+    "Note: Coefficients are locally estimated using geographically weighted regression (GWR) and clipped \nat the 12.5th and 87.5th percentiles for visual clarity.",
+    ha="left",
+    fontsize=11
+)
+
+plt.tight_layout(rect=[0, 0, 1, 1])
+plt.show()
+```
+
+### Towards more equitable policy outcomes
+
+What does this mean for policy?
+
+1.  Blanket price suppression and universal subsidies are blunt instruments. While they reduce short-term hardship and are politically expedient, they may not address the structural reasons why some households face higher costs than others.
+
+2.  Sustained investment in housing energy efficiency offers an effective long-term responses to high energy costs. Improving insulation and upgrading heating systems directly lowers cost and reduces exposure to future price shocks, particularly where inefficient housing imposes the largest cost penalties.
+
+3.  Income matters for affordability, but place matters for exposure. Relying solely on national income thresholds risks overlooking households who face structurally high energy costs because of where and how they live. Given spatial heterogeneity, more granular, place-sensitive approaches may be needed to ensure support reaches those most exposed.
+
+As energy prices settle at a higher level, the challenge for policymakers is no longer how to smooth volatility, but how to prevent nationally regulated prices from becoming a permanent source of inequality, working towards an energy system that is both efficient and equitable.
+
+{{< pagebreak >}}
+
+------------------------------------------------------------------------
+
+# Technical Appendix
+
+### 1. Study Objective
+
+This study examines the structural drivers of domestic energy costs (electricity and gas) at the Middle Layer Super Output Area (MSOA) level in England. First, it identifies how housing characteristics, household composition, and heating systems are associated with variation in average annual household energy costs. Second, it assesses whether these relationships exhibit spatial dependence, indicating that some areas are systematically exposed to higher energy costs even after observable characteristics are controlled for.
+
+The analysis is descriptive and explanatory rather than causal. By focusing on small-area averages, it highlights how nationally regulated energy prices translate into uneven local cost pressures through differences in housing stock, energy efficiency and household structure. The emphasis is on identifying structural sources of exposure and inequity, rather than estimating behavioural responses or causal treatment effects.
+
+### 2. Data and Assumptions
+
+#### 2.1 Spatial unit analysis and data sources
+
+The analysis is conducted at MSOA level for England. MSOAs offer a balance between spatial resolution and data stability, avoiding the volatility associated with smaller geographies while preserving meaningful spatial variation.
+
+[Table 1]{.underline} summarizes the variables considered and retained in the preferred specification
+
+| Variable | Source | Methodology & assumptions |
+|---------------------|------------------|---------------------------------|
+| Annual electricity consumption (kWh) | DESNZ | MSOA mean domestic electricity consumption per meter (2023) |
+| Annual gas consumption (kWh) | DESNZ | MSOA mean domestic gas consumption per meter (2023) |
+| Electricity & gas prices | Ofgem | National average price cap values (incl. VAT), Jan–Mar 2024 |
+| Annual energy cost (dependent variable) | Author | Electricity + gas consumption × unit prices + standing charges |
+| Share of pre-1945 housing | VOA | Proxy for legacy housing inefficiency |
+| Share of EPC D–G dwellings | EPC Register | Proxy for poor energy efficiency (2019–2025) |
+| Median floor area (log) | EPC Register | Logged to address skewness |
+| Median household income (log) | ONS | Logged MSOA income (2023) |
+| Share of detached dwellings | Census 2021 | Captures structural heat loss |
+| Share of households with 4+ occupants | Census 2021 | Captures household size |
+| Heating type shares | Census 2021 | Electric-only, solid/liquid fuels, renewable networks |
+| Urban–rural indicator | ONS | Binary classification |
+| Region | ONS | Region fixed effects |
+
+We assume that energy prices are nationally regulated and spatially uniform, reflecting Ofgem price caps. Spatial variation in observed energy costs therefore arises from differences in consumption, housing efficiency and heating systems rather than local price-setting.
+
+#### 2.2 Exploratory analysis of data variables
+
+Exploratory analysis (Figure A1) highlights substantial right-skewness in electricity consumption and total energy costs, driven by a subset of MSOAs with high electricity reliance and larger dwellings. As household income is also right-skewed, log-transformation is applied to stabilise variance.
+
+Heating system variables are unevenly distributed across space but retained, as they represent structurally distinct energy systems with implications for electricity demand and exposure to high prices.
+
+```{python}
+#| echo: false
+#| warning: false
+# Data Analysis - Understanding the distribution of the variables in the regression set 
+# Drop unwanted numeric columns
+numeric_cols = reg_df[[
+            "annual_energy_cost", 
+            "annual_electricity_cost", 
+            "annual_gas_cost",
+            "share_epc_DG",
+            "log_median_floor_area",
+            "log_income",
+            "share_pre1945", 
+            "share_detached",
+            "share_hh_4plus",
+            "share_electric",
+            "share_low_central",
+            "share_network_renewable"]]
+
+# Convert to long format
+numeric_long = numeric_cols.melt(var_name='variable', value_name='value')
+
+# 1. Setup the grid for 11 variables
+variables = numeric_long['variable'].unique()
+n_vars = len(variables)
+cols = 4
+rows = (n_vars + cols - 1) // cols  # This will result in 3 rows
+
+# 2. Set the exact figure size you requested
+fig, axes = plt.subplots(rows, cols, figsize=(8, 6))
+axes = axes.flatten()
+
+# 3. Iterate and plot
+for i, var in enumerate(variables):
+    sns.histplot(
+        data=numeric_long[numeric_long['variable'] == var], 
+        x='value', 
+        kde=True, 
+        bins=30, 
+        color='steelblue', 
+        ax=axes[i]
+    )
+    # Reducing font sizes slightly to fit the 8x6 scale
+    axes[i].set_title(var, fontsize=10)
+    axes[i].set_xlabel("Value", fontsize=8)
+    axes[i].set_ylabel("Count", fontsize=8)
+    axes[i].tick_params(labelsize=7)
+
+# 4. Remove the 12th (unused) subplot
+for j in range(i + 1, len(axes)):
+    fig.delaxes(axes[j])
+
+# 5. Global Title and Layout Adjustment
+fig.suptitle(
+    "Figure A1: Exploring the distribution of variables of interest",
+    x=0.01, y=0.96,
+    ha="left",
+    fontsize=14,
+    fontweight="bold"
+)
+
+# Use rect to ensure the suptitle doesn't overlap the top row
+plt.tight_layout(rect=[0, 0, 1, 0.98])
+sns.despine()
+plt.show()
+```
+
+Exploratory plots of the dependent variable against key predictors ([Figure A2]{.underline}) subsequently inform variable selection and specification.
+
+```{python}
+#| echo: false
+#| warning: false
+# Exploratory Analysis - Checking the relationships between the variables and annual_energy_cost 
+# Select variables for plotting
+plot_df = reg_df[
+    ["annual_energy_cost", "share_pre1945", "share_epc_DG", 
+     "log_median_floor_area", "share_detached", "log_income", 
+     "share_hh_4plus"]].dropna()
+
+# Convert to long format
+long_df = pd.melt(
+    plot_df,
+    id_vars=["annual_energy_cost"],
+    var_name="predictor",
+    value_name="x_value"
+)
+
+axis_labels = {
+    "share_pre1945": "Share of Buildings built before 1945",
+    "share_epc_DG" : "Share of Buildings with EPC D-G",
+    "log_median_floor_area" : "log Median floor area (m²)", 
+    "share_detached" : "Share of Detached Homes",
+    "log_income": "Log Disposable income ('000) \naft housing costs)",
+    "share_hh_4plus" : "Share of Households with >=4 persons"
+}
+
+predictors = long_df["predictor"].unique()
+
+# 1. Define the grid for 6 predictors (2x3)
+cols = 3
+rows = 2 # 6 predictors fits perfectly in 2x3
+
+# 2. Set the requested figsize
+fig, axes = plt.subplots(rows, cols, figsize=(8, 5))
+axes = axes.flatten()
+
+for i, predictor in enumerate(predictors):
+    subset = long_df[long_df["predictor"] == predictor]
+
+    sns.regplot(
+        data=subset,
+        x="x_value",
+        y="annual_energy_cost",
+        scatter_kws={"alpha": 0.3, "s": 8, "color": "steelblue"}, # Reduced point size slightly
+        line_kws={"color": "black", "linewidth": 1.2},
+        ci=None,
+        ax=axes[i]
+    )
+
+    # Scale font sizes for the 8x6 footprint
+    axes[i].set_title(f"Cost vs \n{predictor}", fontsize=9, fontweight='bold')
+    axes[i].set_xlabel(axis_labels[predictor], fontsize=8)
+    axes[i].set_ylabel("Annual Energy Cost", fontsize=8)
+    axes[i].tick_params(labelsize=7)
+
+# 3. Handle unused axes (if your predictor count ever changes)
+for j in range(i + 1, len(axes)):
+    fig.delaxes(axes[j])
+
+# 4. Refined title and layout
+fig.suptitle(
+    "Figure A2: Mapping bivariate relationships between energy cost and \nkey predictors",
+    x=0.01, y=0.96,
+    ha="left",
+    fontsize=14,
+    fontweight="bold"
+)
+
+plt.tight_layout(rect=[0, 0, 1, 0.98])
+sns.despine()
+plt.show()
+```
+
+### 3. Methodology and Model Specification
+
+#### 3.1 Construction of energy costs
+
+Annual household energy costs are constructed by combining MSOA-level average electricity and gas consumption with national unit prices and standing charges. Electricity and gas costs are calculated separately and summed to obtain total average annual energy cost per household.
+
+#### 3.2 Regression framework
+
+Ordinary Least Squares (OLS) regression is used as the primary modelling framework, due to its transparency and interpretability. Coefficients are interpreted as marginal associations with average annual household energy costs. All models are estimated with heteroscedasticity-robust (HC1) standard errors.
+
+The preferred specification is:
+
+$$
+\begin{aligned}
+\text{EnergyCost}_i
+= {} & \alpha
++ \beta_1 \,\text{Pre1945}_i
++ \beta_2 \,\text{EPC}_{D\text{--}G,i}
++ \beta_3 \log(\text{FloorArea}_i) \\
+& + \beta_4 \log(\text{Income}_i)
++ \beta_5 \,\text{Detached}_i
++ \beta_6 \,\text{HH}_{4+,i} \\
+& + \beta_7 \,\text{FuelMix}_i
++ \beta_8 \,\text{Urban}_i
++ \gamma_r
++ \varepsilon_i
+\end{aligned}
+$$
+
+where *i* indexes MSOAs and γᵣ denotes region fixed effects.
+
+Variables capture four structural dimensions:
+
+1.  **Housing age and efficiency** (share pre-1945, share EPC D–G)
+
+2.  **Housing scale and form** (log floor area, share detached)
+
+3.  **Household composition and income** (log income, share 4+ households)
+
+4.  **Heating infrastructure** (fuel mix indicators)
+
+Multicollinearity is assessed using variance inflation factors and remains within accepted thresholds.
+
+### 4. Regression Findings
+
+Across all specifications, **structural housing characteristics and household composition emerge as the dominant drivers of energy costs**.
+
+-   A higher share of EPC D–G dwellings and pre-1945 housing is consistently associated with higher annual energy costs, even after controlling for income and dwelling size.
+
+-   Larger dwellings and detached housing are strongly associated with higher costs, reflecting greater baseline energy demand.
+
+-   Household composition plays a particularly important role: MSOAs with a higher share of households containing four or more occupants exhibit substantially higher energy costs.
+
+-   Fuel mix variables materially improve explanatory power (adjusted $R^2$) rising from $~0.58$ to $~0.70$. Electric-only heating is associated with significantly higher costs, while solid and liquid fuels are associated with lower average expenditure.
+
+-   Urban–rural status becomes insignificant once housing and fuel characteristics are controlled for, indicating that observed urban–rural differences primarily reflect housing stock composition.
+
+-   Region fixed effects marginally improve model fit (final adjusted $R^2 = 0.74$) likely capturing some climatic variation and regional housing patterns.
+
+```{python}
+#| echo: false
+#| warning: false
+def plot_regression_diagnostics(model, X):
+    """
+    Diagnostics dashboard closely mirroring performance::check_model()
+    (presentation-minimised for reuse across specifications)
+    """
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    import scipy.stats as stats
+    from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+    sns.set_style("whitegrid")
+
+    # --------------------------------------------------
+    # 1. Standardised quantities
+    # --------------------------------------------------
+    fitted = model.fittedvalues
+    resid = model.resid
+
+    fitted_std = (fitted - fitted.mean()) / fitted.std()
+    resid_std = (resid - resid.mean()) / resid.std()
+
+    std_resid = model.get_influence().resid_studentized_internal
+    sqrt_abs_std_resid = np.sqrt(np.abs(std_resid))
+
+    # --------------------------------------------------
+    # 2. VIF
+    # --------------------------------------------------
+    X_full = X.astype(float)
+
+    vif_all = pd.DataFrame({
+        "Variable": X_full.columns,
+        "VIF": [
+            variance_inflation_factor(X_full.values, i)
+            for i in range(X_full.shape[1])
+        ]
+    })
+
+    vif_df = (
+        vif_all
+        .loc[vif_all["Variable"] != "const"]
+        .sort_values("VIF")
+        .reset_index(drop=True)
+    )
+
+    # Generic plotting labels (for reproducibility)
+    vif_df["Plot_label"] = [f"Var_{i+1}" for i in range(len(vif_df))]
+
+    # --------------------------------------------------
+    # 3. Layout
+    # --------------------------------------------------
+    fig = plt.figure(figsize=(8, 6.5))
+    gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 0.8])
+
+    def title(ax, main, sub):
+        ax.set_title(main, loc="left", fontsize=13, fontweight="bold", pad=22)
+        ax.text(
+            0, 1.03, sub,
+            transform=ax.transAxes,
+            fontsize=9.5,
+            ha="left",
+            va="bottom"
+        )
+
+    # --------------------------------------------------
+    # Linearity
+    # --------------------------------------------------
+    ax1 = fig.add_subplot(gs[0, 0])
+    sns.scatterplot(x=fitted_std, y=resid_std, s=12, alpha=0.4, ax=ax1)
+    sns.regplot(
+        x=fitted_std, y=resid_std,
+        scatter=False, lowess=True,
+        line_kws={"color": "green"}, ax=ax1
+    )
+    ax1.axhline(0, ls="--", color="black")
+    ax1.set_ylim(-4, 6)
+    title(ax1, "Linearity", "Reference line should be flat and horizontal")
+    ax1.set_xlabel("Fitted values (standardised)")
+    ax1.set_ylabel("Residuals (standardised)")
+
+    # --------------------------------------------------
+    # Homogeneity of variance
+    # --------------------------------------------------
+    ax2 = fig.add_subplot(gs[0, 1])
+    sns.scatterplot(
+        x=fitted_std,
+        y=sqrt_abs_std_resid,
+        s=12, alpha=0.4, ax=ax2
+    )
+    sns.regplot(
+        x=fitted_std,
+        y=sqrt_abs_std_resid,
+        scatter=False, lowess=True,
+        line_kws={"color": "green"}, ax=ax2
+    )
+    ax2.set_ylim(0, 4)
+    title(ax2, "Homogeneity of Variance",
+          "Reference line should be flat and horizontal")
+    ax2.set_xlabel("Fitted values (standardised)")
+    ax2.set_ylabel(r"$\sqrt{|Studentised\ residuals|}$")
+
+    # --------------------------------------------------
+    # Collinearity (VIF)
+    # --------------------------------------------------
+    ax3 = fig.add_subplot(gs[1, 0])
+    xmax = max(10, vif_df["VIF"].max() + 0.5)
+
+    ax3.axvspan(0, 5, color="#2ecc71", alpha=0.15)
+    ax3.axvspan(5, 10, color="#3498db", alpha=0.15)
+    ax3.axvspan(10, xmax, color="#e74c3c", alpha=0.15)
+
+    sns.scatterplot(
+        data=vif_df,
+        x="VIF",
+        y="Plot_label",
+        s=45,
+        color="black",
+        ax=ax3
+    )
+
+    ax3.axvline(5, ls="--", color="black")
+    ax3.axvline(10, ls="--", color="black")
+    ax3.set_xlim(0, xmax)
+
+    title(
+        ax3,
+        "Collinearity",
+        "Higher values indicate collinearity"
+    )
+
+    ax3.set_xlabel("Variance Inflation Factor (VIF)")
+    ax3.set_ylabel("")
+
+    # --------------------------------------------------
+    # Normality (Q–Q deviation)
+    # --------------------------------------------------
+    ax4 = fig.add_subplot(gs[1, 1])
+    std_resid_sorted = np.sort(std_resid)
+    n = len(std_resid_sorted)
+    theoretical_q = stats.norm.ppf((np.arange(1, n + 1) - 0.5) / n)
+
+    ax4.scatter(
+        theoretical_q,
+        std_resid_sorted - theoretical_q,
+        s=12,
+        alpha=0.7
+    )
+    ax4.axhline(0, color="green", lw=2)
+    ax4.set_ylim(-1, 4)
+    title(ax4, "Normality of Residuals",
+          "Dots should fall along the line")
+    ax4.set_xlabel("Standard normal quantiles")
+    ax4.set_ylabel("Sample quantile deviations")
+
+    # --------------------------------------------------
+    # Residual density
+    # --------------------------------------------------
+    ax5 = fig.add_subplot(gs[2, 0])
+    sns.kdeplot(resid_std, fill=True, alpha=0.3, ax=ax5)
+    title(ax5, "Normality of Residuals",
+          "Distribution should be close to the normal curve")
+    ax5.set_xlabel("Standardised residuals")
+    ax5.set_ylabel("Density")
+
+    # Empty panel
+    ax6 = fig.add_subplot(gs[2, 1])
+    ax6.axis("off")
+
+    fig.subplots_adjust(hspace=0.7)
+    plt.show()
+
+    # Return full VIF table with true variable names
+    return vif_df[["Variable", "VIF"]]
+```
+
+```{python}
+#| echo: false
+#| warning: false
+import statsmodels.api as sm
+from statsmodels.iolib.summary2 import summary_col 
+
+# Model 1
+X_1 = reg_df[
+    ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income", 
+     "share_detached", "share_hh_4plus"]
+]
+X_1 = sm.add_constant(X_1)
+y = reg_df["annual_energy_cost"]
+
+model_1 = sm.OLS(y, X_1).fit(cov_type="HC1")
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# Next, we test if we can improve explanatory power by including the fuel mix
+fuel_cols = [
+    "share_electric",
+    "share_solid_liquid",
+    "share_low_central",
+    "share_network_renewable"
+]
+
+X_2 = reg_df[
+    ["share_pre1945",  "share_epc_DG", "log_median_floor_area", "log_income", 
+     "share_detached", "share_hh_4plus"] + fuel_cols
+]
+X_2 = sm.add_constant(X_2)
+
+model_2 = sm.OLS(y, X_2).fit(cov_type="HC1")
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# Next, we test if there is any significance of urban / rural effects
+reg_df["urban_dummy"] = (reg_df["Ruralurban"] == "Urban").astype(int)
+
+X_3 = reg_df[
+    ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
+     "share_detached", "share_hh_4plus", "urban_dummy"] + fuel_cols
+]
+X_3 = sm.add_constant(X_3)
+
+model_3 = sm.OLS(y, X_3).fit(cov_type="HC1")
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# last, we control for any regional effects 
+region_dummies = pd.get_dummies(
+    reg_df["region"],
+    prefix="region",
+    drop_first=True
+)
+
+X_4 = pd.concat(
+    [
+        reg_df[
+            ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
+             "share_detached", "share_hh_4plus", "urban_dummy"]
+            + fuel_cols
+        ],
+        region_dummies
+    ],
+    axis=1
+)
+
+X_4 = sm.add_constant(X_4).astype(float)
+
+model_4 = sm.OLS(y, X_4).fit(cov_type="HC1")
+print(model_4.summary())
+
+results_table = summary_col(
+    results=[model_1, model_2, model_3, model_4],
+    model_names=["Base_model", "Fuel_Mix", "Rural/Urban", "Region_FE"],
+    stars=True,
+    float_format="%0.3f",
+    info_dict={
+        "N": lambda x: f"{int(x.nobs)}",
+        "R²": lambda x: f"{x.rsquared:.3f}"
+    }
+)
+
+print(results_table)
+```
+
+Residual diagnostics ([Figure A4]{.underline}) indicate satisfactory linearity and variance homogeneity, with mild right-skewness driven by a small number of high-electricity-cost MSOAs, driven by a small number of high-cost MSOAs characterised by larger dwellings, higher electricity reliance and limited gas connectivity.
+
+```{python}
+#| echo: false
+#| warning: false
+plot_regression_diagnostics(model_4, X_4)
+```
+
+### 5. Unpacking spatial dependence via Spatial Error Model (SEM) and Geographically Weighted Regression (GWR)
+
+Global Moran’s I tests on OLS residuals reveal significant positive spatial autocorrelation ($I = 0.43$), indicating that neighbouring MSOAs share some unobserved characteristics influencing energy costs.
+
+```{python}
+#| echo: false
+#| warning: false
+from libpysal.weights import Queen
+import geopandas as gpd
+
+# Load your spatial data (shapefile or GeoJSON)
+msoa_gdf_valid = msoa_gdf_merged[msoa_gdf_merged["annual_energy_cost"].notna()].copy()
+gdf = msoa_gdf_valid
+
+# Create the spatial weights matrix
+w = Queen.from_dataframe(gdf)
+w.transform = 'r'  # Row-standardize (averages the impact of neighbors)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+from esda.moran import Moran
+ols_resid = model_4.resid
+mi = Moran(ols_resid, w)
+print("Moran's I value  = ", round(mi.I, 2), "with p =" , mi.p_sim)
+```
+
+To account for this, a Spatial Error Model (SEM) was estimated using maximum likelihood. The SEM identifies strong spatial correlation in the error term $(λ ≈ 0.73)$, consistent with omitted spatially structured factors such as housing typologies, retrofit histories or local infrastructure.
+
+```{python}
+#| echo: false
+#| warning: false
+import numpy as np
+import statsmodels.api as sm
+from spreg import ML_Lag, ML_Error
+
+# Dependent variable (n x 1)
+y_sp = reg_df["annual_energy_cost"].values.reshape(-1, 1)
+
+# Independent variables
+X_df = pd.concat(
+    [
+        reg_df[
+            ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
+             "share_detached", "share_hh_4plus"]
+        ],
+        reg_df[fuel_cols],
+    ],
+    axis=1,
+)
+
+# Add constant explicitly
+X_sp = np.hstack([np.ones((X_df.shape[0], 1)), X_df.values])
+
+# Variable names (constant first!)
+x_names = ["const"] + list(X_df.columns)
+
+# Row-standardise weights
+w.transform = "r"
+
+# SEM model
+sem_model = ML_Error(
+    y_sp,
+    X_sp,
+    w=w,
+    name_y="annual_energy_cost",
+    name_x=x_names,
+)
+
+print(sem_model.summary)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+
+# SAR model
+sar_model = ML_Lag(
+    y_sp,
+    X_sp,
+    w=w,
+    name_y="annual_energy_cost",
+    name_x=x_names,
+)
+
+print(sar_model.summary)
+print("OLS AIC:", model_4.aic)
+print("SAR AIC:", sar_model.aic)
+print("SEM AIC:", sem_model.aic)
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+from esda.moran import Moran
+ols_resid = model_4.resid
+mi_OLS = Moran(ols_resid, w)
+mi_sem = Moran(sem_model.u, w)
+mi_sar = Moran(sar_model.u, w)
+
+print(mi_OLS.I, mi_OLS.p_sim)
+print(mi_sem.I, mi_sem.p_sim)
+print(mi_sar.I, mi_sar.p_sim)
+```
+
+Importantly, coefficient magnitudes and signs remain broadly consistent with OLS results. This suggests that the main findings are robust, while acknowledging that exposure to high energy costs is partially shaped by spatially clustered, unobserved characteristics rather than indicating misspecification of the core structural relationships.
+
+Geographically Weighted Regression (GWR) was further used to explore spatial heterogeneity in coefficients, focusing on income and EPC D–G share. An adaptive bandwidth is selected via AICc.
+
+```{python}
+#| echo: false
+#| warning: false
+print(gwr_results.summary())
+```
+
+Results show substantial spatial variation:
+
+-   In some areas, income is strongly associated with higher energy costs, reflecting consumption-driven demand
+
+-   In others, the EPC D–G coefficient dominates, indicating that poor housing efficiency imposes high costs regardless of income.
+
+GWR substantially improves model fit ($R^2 > 0.88$), but is interpreted as exploratory, highlighting where mechanisms differ rather than replacing global estimates. The high $R^2$ reflects local overfitting inherent to GWR and should not be interpreted as superior explanatory power relative to the global model.”
+
+### 6. Reflections and Limitations
+
+This analysis is subject to several limitations. As an ecological study, it cannot capture within-area household heterogeneity or behavioural responses such as under-heating. Prices are assumed spatially uniform, and retrofit history is not directly observed.
+
+Residual spatial clustering reflects genuine structural heterogeneity rather than model failure. From an equity perspective, the results underline that exposure to high energy costs is shaped by place-specific housing conditions, not income alone. This reinforces the need for policy approaches that integrate housing efficiency and local context alongside income-based support.
+
+## References
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+reg_df["ols_resid"] = model_4.resid
+
+gdf_plot = msoa_gdf.merge(
+    reg_df[["MSOA_code", "ols_resid"]],
+    on="MSOA_code",
+    how="left"
+)
+
+fig, ax = plt.subplots(1, 1, figsize=(8, 10))
+
+gdf_plot.plot(
+    column="ols_resid",
+    cmap="RdBu_r",
+    linewidth=0,
+    legend=True,
+    ax=ax,
+    vmin=-gdf_plot["ols_resid"].abs().quantile(0.95),
+    vmax= gdf_plot["ols_resid"].abs().quantile(0.95)
+)
+
+ax.set_title("OLS Residuals: Annual Energy Cost (Model 4)", fontsize=14)
+ax.axis("off")
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| output: false
+reg_df = reg_df.copy()
+
+reg_df["fitted"]   = model_4.fittedvalues
+reg_df["residual"] = model_4.resid
+reg_df["pos_residual"] = reg_df["residual"]
+tail_cutoff = reg_df["pos_residual"].quantile(0.99)
+
+tail_df = (
+    reg_df
+    .loc[reg_df["pos_residual"] >= tail_cutoff]
+    .copy()
+)
+
+tail_df.shape[0]
+
+compare_vars = [
+   "share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
+   "share_detached", "share_hh_4plus",  "share_electric",
+    "share_solid_liquid",
+    "share_low_central",
+    "share_network_renewable", "urban_dummy",
+]
+
+comparison = pd.DataFrame({
+    "Tail_mean": tail_df[compare_vars].mean(),
+    "All_mean":  reg_df[compare_vars].mean()
+})
+
+comparison["Difference"] = (
+    comparison["Tail_mean"] - comparison["All_mean"]
+)
+
+comparison.sort_values("Difference", ascending=False)
+
+sns.scatterplot(
+    data=reg_df,
+    x="fitted",
+    y="residual",
+    alpha=0.3
+)
+
+sns.scatterplot(
+    data=tail_df,
+    x="fitted",
+    y="residual",
+    color="red"
+)
+
+plt.axhline(0, linestyle="--", color="black")
+plt.show()
+```

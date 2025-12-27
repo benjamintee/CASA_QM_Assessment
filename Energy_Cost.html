@@ -21,7 +21,26 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="Energy_Cost_files/libs/clipboard/clipboard.min.js"></script>
@@ -131,7 +150,7 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="from-shock-to-persistence">From shock to persistence</h3>
 <p>The sharp rise in energy cost in 2022 was driven by global wholesale gas prices and exacerbated by geopolitical shocks<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>. Since then, wholesale prices have moderated, and the government’s Energy Price Guarantee (EPG) temporarily capped household exposure at the height of the crisis<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>.</p>
 <p>Yet, this has not returned household costs to pre-2021 norms. Latest estimates show that the energy price cap remains around £600 (45%) higher than before the crisis (<u>Figure 1</u>). Moreover, the cap is projected to rise again in the coming quarters<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>. While volatility has eased, prices have settled at historically high levels.</p>
-<div id="31ac7379" class="cell" data-execution_count="21">
+<div id="dd4fefc3" class="cell" data-execution_count="21">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -141,7 +160,7 @@ window.Quarto = {
 </div>
 </div>
 <p>This persistence places growing pressure on households. Average levels of energy debt and the number of households in arrears have risen sharply since 2021 (<u>Figure 2</u>), suggesting that many have been unable to absorb higher costs through behavioural adjustments or savings alone.</p>
-<div id="3c77682e" class="cell" data-execution_count="22">
+<div id="99bb1ab0" class="cell" data-execution_count="22">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -151,7 +170,7 @@ window.Quarto = {
 </div>
 </div>
 <p>While the impact is most acute for lower-income households, higher energy costs are also squeezing the broad-middle. At least 15% of middle-income households now report struggling to heat their homes adequately<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a>. It is therefore unsurprising that energy costs remain at the top of public concerns. A March 2025 IPSOS UK survey<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a> found that close to nine in ten respondents (88%) were worried about the price households pay for home energy — a figure unchanged since the height of the crisis (<u>Figure 3</u>).</p>
-<div id="1ad596cc" class="cell" data-execution_count="23">
+<div id="3728ab3e" class="cell" data-execution_count="23">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -165,9 +184,9 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="exposure-to-high-energy-costs-is-uneven-across-england">Exposure to high energy costs is uneven across England</h3>
 <p>Although household energy prices are nationally regulated, the costs households face are far from uniform leading to unequal outcomes. Average bills depend not only on prices, but on how much energy households consume and how efficiently their homes convert energy into power.</p>
 <p>As a result, some households face persistently high energy costs because they live in larger, older or less efficient homes, rely on more expensive heating systems, or have limited scope to reduce consumption. These differences reflect structural characteristics of housing rather than short-term behavioural choices alone.</p>
-<p><u>Figure 4</u> illustrates this uneven exposure by mapping average household energy costs across England. Higher costs are concentrated across much of the North and Midlands, and parts of the South Coast, while lower average costs are more common in parts of the Southwest and East. There is also substantial variation within regions and cities, indicating that exposure to high energy cost is shaped by local housing conditions and energy use patterns rather than geography alone.</p>
+<p><u>Figure 4</u> illustrates this uneven exposure by mapping average household energy costs across England. Higher costs are concentrated across much of the North and Midlands, and parts of the South Coast, while lower average costs are more common in parts of the Southwest and East. There is also substantial variation within regions and cities.</p>
 <p>This raises a key question: <strong>if prices are broadly similar, why does its impact differ so sharply, and what does that imply for equitable energy policy?</strong></p>
-<div id="2dc91633" class="cell" data-execution_count="24">
+<div id="90cccdfe" class="cell" data-execution_count="24">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -184,7 +203,7 @@ window.Quarto = {
 <ol type="1">
 <li><strong>Housing energy inefficiency is a central driver of high costs</strong>. Areas with a higher share of energy-inefficient homes (EPC bands D-G), face significantly higher annual energy costs, even after accounting for income and other housing characteristics. Poor insulation and inefficient heating systems amplify the associated increase of high prices, meaning that households in these homes pay more regardless of their income position. Housing inefficiency does not merely coincide with low incomes; it actively magnifies exposure to high energy prices.</li>
 <li><strong>Housing form and household composition matter</strong>. Older and larger dwellings, detached housing and areas with more large households all face higher energy costs, reflecting greater baseline energy needs. These factors help explain why some higher-income areas still experience high absolute cost: higher incomes often coincide with larger, more energy-intensive homes.</li>
-<li><strong>Income shapes households’ capacity to absorb energy costs rather than costs alone</strong>. Higher incomes are associated with higher energy consumption and higher costs, but they also provide greater financial resilience. In contrast, areas characterised by lower incomes have far less scope to accommodate rising costs, particularly where poor housing efficiency or heating systems push cost</li>
+<li><strong>Income shapes households’ capacity to absorb energy costs rather than costs alone</strong>. Higher incomes are associated with higher energy consumption and higher costs, but they also provide greater financial resilience. In contrast, areas characterised by lower incomes have far less scope to accommodate rising costs, particularly where poor housing efficiency or heating systems push cost upwards.</li>
 </ol>
 <table class="caption-top table">
 <colgroup>
@@ -231,7 +250,7 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="why-place-still-matters">Why place still matters</h3>
 <p>Even after accounting for income, housing characteristics and heating systems, some spatial variation in energy costs remains. This reflects localised differences in heating infrastructure, housing stock composition and settlement patterns that shape how households experience nationally regulated energy prices.</p>
 <p><u>Figure 5</u> shows how the influence of income and energy efficiency vary across England. In some areas, higher incomes are closely associated with higher energy costs, reflecting consumption linked to larger or more energy-intensive homes. In others, income plays a much weaker role. In contrast, the cost penalty associated with poor housing efficiency is uneven, with inefficient homes driving higher cost in some places but less so in others.</p>
-<div id="e305dd65" class="cell" data-execution_count="26">
+<div id="32a6a725" class="cell" data-execution_count="26">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -266,7 +285,7 @@ window.Quarto = {
 <section id="spatial-unit-analysis-and-data-sources" class="level4">
 <h4 class="anchored" data-anchor-id="spatial-unit-analysis-and-data-sources">2.1 Spatial unit analysis and data sources</h4>
 <p>The analysis is conducted at MSOA level for England. MSOAs offer a balance between spatial resolution and data stability, avoiding the volatility associated with smaller geographies while preserving meaningful spatial variation.</p>
-<p><u>Table 1</u> summarizes the variables considered and retained in the preferred specification</p>
+<p><u>Table 1</u> summarizes variables considered and retained in the preferred specification.</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 29%">
@@ -352,9 +371,9 @@ window.Quarto = {
 </section>
 <section id="exploratory-analysis-of-data-variables" class="level4">
 <h4 class="anchored" data-anchor-id="exploratory-analysis-of-data-variables">2.2 Exploratory analysis of data variables</h4>
-<p>Exploratory analysis (Figure A1) highlights substantial right-skewness in electricity consumption and total energy costs, driven by a subset of MSOAs with high electricity reliance and larger dwellings. As household income is also right-skewed, log-transformation is applied to stabilise variance.</p>
-<p>Heating system variables are unevenly distributed across space but retained, as they represent structurally distinct energy systems with implications for electricity demand and exposure to high prices.</p>
-<div id="30c01389" class="cell" data-execution_count="27">
+<p>Exploratory analysis (<u>Figure A1</u>) highlights substantial right-skewness in electricity consumption and total energy costs, driven by a subset of MSOAs with high electricity reliance and larger dwellings. As household income is also right-skewed, log-transformation is applied to stabilise variance.</p>
+<p>Heating system variables are unevenly distributed across space but are retained, as they represent structurally distinct energy systems with implications for electricity demand and exposure to high prices.</p>
+<div id="d54d5543" class="cell" data-execution_count="27">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -364,7 +383,7 @@ window.Quarto = {
 </div>
 </div>
 <p>Exploratory plots of the dependent variable against key predictors (<u>Figure A2</u>) subsequently inform variable selection and specification.</p>
-<div id="6f984843" class="cell" data-execution_count="28">
+<div id="8682ca82" class="cell" data-execution_count="28">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
@@ -414,16 +433,16 @@ window.Quarto = {
 </section>
 <section id="regression-findings" class="level3">
 <h3 class="anchored" data-anchor-id="regression-findings">4. Regression Findings</h3>
-<p>Across all specifications, <strong>structural housing characteristics and household composition emerge as the dominant drivers of energy costs</strong>.</p>
+<p>Across all specifications, <strong>structural housing characteristics and household composition</strong> emerge as the primary drivers of variation in annual household energy costs.</p>
 <ul>
-<li><p>A higher share of EPC D–G dwellings and pre-1945 housing is consistently associated with higher annual energy costs, even after controlling for income and dwelling size.</p></li>
-<li><p>Larger dwellings and detached housing are strongly associated with higher costs, reflecting greater baseline energy demand.</p></li>
-<li><p>Household composition plays a particularly important role: MSOAs with a higher share of households containing four or more occupants exhibit substantially higher energy costs.</p></li>
-<li><p>Fuel mix variables materially improve explanatory power (adjusted <span class="math inline">\(R^2\)</span>) rising from <span class="math inline">\(~0.58\)</span> to <span class="math inline">\(~0.70\)</span>. Electric-only heating is associated with significantly higher costs, while solid and liquid fuels are associated with lower average expenditure.</p></li>
-<li><p>Urban–rural status becomes insignificant once housing and fuel characteristics are controlled for, indicating that observed urban–rural differences primarily reflect housing stock composition.</p></li>
-<li><p>Region fixed effects marginally improve model fit (final adjusted <span class="math inline">\(R^2 = 0.74\)</span>) likely capturing some climatic variation and regional housing patterns.</p></li>
+<li><p>A higher share of <strong>energy-inefficient dwellings (EPC D–G)</strong> and <strong>pre-1945 housing</strong> is consistently associated with higher energy costs, even after controlling for income and dwelling size. These effects remain stable across all model specifications, indicating that housing efficiency and age exert an independent influence on energy expenditure.</p></li>
+<li><p><strong>Dwelling size and housing type</strong> are also strongly associated with energy costs. Larger median floor areas and a higher share of detached housing are linked to higher expenditure, reflecting greater baseline energy demand.</p></li>
+<li><p><strong>Household composition plays a particularly important role.</strong> MSOAs with a higher share of households containing four or more occupants exhibit substantially higher energy costs across all models, with this variable showing the largest coefficients throughout.</p></li>
+<li><p>The inclusion of <strong>fuel mix variables</strong> materially improves explanatory power, with the adjusted <span class="math inline">\(R^2\)</span> increasing from <span class="math inline">\(0.572\)</span>to<span class="math inline">\(0.713\)</span>. Electric-only heating is associated with significantly higher energy costs, while solid and liquid fuels and networked renewables are associated with lower average expenditure.</p></li>
+<li><p>The <strong>urban–rural indicator</strong> becomes substantively weak once housing and fuel characteristics are included, suggesting that observed urban–rural differences primarily reflect housing stock composition rather than settlement type.</p></li>
+<li><p>Adding <strong>region fixed effects</strong> further improves model fit (final adjusted <span class="math inline">\(R^2\)</span> = <span class="math inline">\(0.745\)</span>), likely capturing residual climatic variation and regional housing patterns, without materially altering the main coefficient estimates.</p></li>
 </ul>
-<div id="4554698c" class="cell" data-execution_count="33">
+<div id="ebc12662" class="cell" data-execution_count="33">
 <div class="cell-output cell-output-stdout">
 <pre><code>                            OLS Regression Results                            
 ==============================================================================
@@ -431,7 +450,7 @@ Dep. Variable:     annual_energy_cost   R-squared:                       0.745
 Model:                            OLS   Adj. R-squared:                  0.745
 Method:                 Least Squares   F-statistic:                     605.9
 Date:                Sat, 27 Dec 2025   Prob (F-statistic):               0.00
-Time:                        17:54:24   Log-Likelihood:                -43596.
+Time:                        23:42:05   Log-Likelihood:                -43596.
 No. Observations:                6791   AIC:                         8.723e+04
 Df Residuals:                    6771   BIC:                         8.737e+04
 Df Model:                          19                                         
@@ -521,140 +540,27 @@ Standard errors in parentheses.
 * p&lt;.1, ** p&lt;.05, ***p&lt;.01</code></pre>
 </div>
 </div>
-<p>Residual diagnostics (<u>Figure A4</u>) indicate satisfactory linearity and variance homogeneity, with mild right-skewness driven by a small number of high-electricity-cost MSOAs, driven by a small number of high-cost MSOAs characterised by larger dwellings, higher electricity reliance and limited gas connectivity.</p>
-<div id="5b62ebc2" class="cell" data-execution_count="34">
+<p>Residual diagnostics (<u>Figure A3)</u> indicate satisfactory linearity and variance homogeneity, with mild right-skewness associated with a small number of high-cost MSOAs that tend to have larger dwellings, higher reliance on electricity, and limited gas grid connectivity.</p>
+<div id="983671ed" class="cell" data-execution_count="34">
 <div class="cell-output cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="Energy_Cost_files/figure-html/cell-35-output-1.png" width="667" height="581" class="figure-img"></p>
+<p><img src="Energy_Cost_files/figure-html/cell-35-output-1.png" width="765" height="660" class="figure-img"></p>
 </figure>
-</div>
-</div>
-<div class="cell-output cell-output-display" data-execution_count="34">
-<div>
-
-
-<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
-<thead>
-<tr class="header">
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th">Variable</th>
-<th data-quarto-table-cell-role="th">VIF</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">0</th>
-<td>region_North East</td>
-<td>1.686154</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">1</th>
-<td>share_epc_DG</td>
-<td>1.902158</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">2</th>
-<td>share_hh_4plus</td>
-<td>1.927551</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">3</th>
-<td>region_Yorkshire &amp; The Humber</td>
-<td>2.067431</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">4</th>
-<td>region_South West</td>
-<td>2.071966</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">5</th>
-<td>region_West Midlands</td>
-<td>2.102305</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">6</th>
-<td>share_pre1945</td>
-<td>2.106134</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">7</th>
-<td>urban_dummy</td>
-<td>2.147526</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">8</th>
-<td>share_electric</td>
-<td>2.224277</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">9</th>
-<td>region_East of England</td>
-<td>2.245763</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">10</th>
-<td>share_network_renewable</td>
-<td>2.277739</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">11</th>
-<td>region_North West</td>
-<td>2.469844</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">12</th>
-<td>region_South East</td>
-<td>2.849354</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">13</th>
-<td>share_solid_liquid</td>
-<td>3.225414</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">14</th>
-<td>share_detached</td>
-<td>3.631050</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">15</th>
-<td>log_median_floor_area</td>
-<td>3.815178</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">16</th>
-<td>log_income</td>
-<td>4.066691</td>
-</tr>
-<tr class="even">
-<th data-quarto-table-cell-role="th">17</th>
-<td>share_low_central</td>
-<td>4.577141</td>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th">18</th>
-<td>region_London</td>
-<td>5.265254</td>
-</tr>
-</tbody>
-</table>
-
 </div>
 </div>
 </div>
 </section>
 <section id="unpacking-spatial-dependence-via-spatial-error-model-sem-and-geographically-weighted-regression-gwr" class="level3">
 <h3 class="anchored" data-anchor-id="unpacking-spatial-dependence-via-spatial-error-model-sem-and-geographically-weighted-regression-gwr">5. Unpacking spatial dependence via Spatial Error Model (SEM) and Geographically Weighted Regression (GWR)</h3>
-<p>Global Moran’s I tests on OLS residuals reveal significant positive spatial autocorrelation (<span class="math inline">\(I = 0.43\)</span>), indicating that neighbouring MSOAs share some unobserved characteristics influencing energy costs.</p>
-<div id="a4342a56" class="cell" data-execution_count="36">
+<p>Global Moran’s I tests on OLS residuals revealed positive spatial autocorrelation (<span class="math inline">\(I = 0.43\)</span>), indicating that neighbouring MSOAs share some unobserved characteristics influencing energy costs.</p>
+<div id="c48c737a" class="cell" data-execution_count="36">
 <div class="cell-output cell-output-stdout">
 <pre><code>Moran's I value  =  0.43 with p = 0.001</code></pre>
 </div>
 </div>
 <p>To account for this, a Spatial Error Model (SEM) was estimated using maximum likelihood. The SEM identifies strong spatial correlation in the error term <span class="math inline">\((λ ≈ 0.73)\)</span>, consistent with omitted spatially structured factors such as housing typologies, retrofit histories or local infrastructure.</p>
-<div id="d490d32e" class="cell" data-execution_count="37">
+<div id="161466d9" class="cell" data-execution_count="37">
 <div class="cell-output cell-output-stdout">
 <pre><code>REGRESSION RESULTS
 ------------------
@@ -691,90 +597,158 @@ Warning: Variable(s) ['const'] removed for being constant.
 ================================ END OF REPORT =====================================</code></pre>
 </div>
 </div>
-<p>Importantly, coefficient magnitudes and signs remain broadly consistent with OLS results. This suggests that the main findings are robust, while acknowledging that exposure to high energy costs is partially shaped by spatially clustered, unobserved characteristics rather than indicating misspecification of the core structural relationships.</p>
-<p>Geographically Weighted Regression (GWR) was further used to explore spatial heterogeneity in coefficients, focusing on income and EPC D–G share. An adaptive bandwidth is selected via AICc.</p>
-<div id="9eda9ff3" class="cell" data-execution_count="40">
-<div class="cell-output cell-output-stdout">
-<pre><code>===========================================================================
-Model type                                                         Gaussian
-Number of observations:                                                6791
-Number of covariates:                                                     7
+<p>Importantly, <strong>coefficient magnitudes and signs remain broadly consistent with OLS results</strong>. This suggests that the main findings are robust, while acknowledging that exposure to high energy costs is partially shaped by spatially clustered, unobserved characteristics rather than misspecification of the core structural relationships.</p>
+<p>Geographically Weighted Regression (GWR) was further used to <strong>explore spatial heterogeneity in coefficients</strong>, focusing on income and EPC D–G share. An adaptive bandwidth is selected via AICc.</p>
+<div id="149bc304" class="cell" data-results="asis" data-execution_count="40">
+<div class="cell-output cell-output-display" data-execution_count="40">
+<div>
 
-Global Regression Results
----------------------------------------------------------------------------
-Residual sum of squares:                                       251463249.319
-Log-likelihood:                                                  -45354.817
-AIC:                                                              90723.635
-AICc:                                                             90725.656
-BIC:                                                           251403391.689
-R2:                                                                   0.572
-Adj. R2:                                                              0.572
 
-Variable                              Est.         SE  t(Est/SE)    p-value
-------------------------------- ---------- ---------- ---------- ----------
-X0                                2130.861      2.336    912.069      0.000
-X1                                  12.273      3.159      3.885      0.000
-X2                                  47.948      3.009     15.933      0.000
-X3                                  95.718      3.720     25.732      0.000
-X4                                  79.856      2.638     30.270      0.000
-X5                                  45.824      3.832     11.958      0.000
-X6                                 106.246      2.504     42.432      0.000
+<table class="dataframe caption-top table table-sm table-striped small" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">Variable</th>
+<th data-quarto-table-cell-role="th">Mean coefficient</th>
+<th data-quarto-table-cell-role="th">Std. dev.</th>
+<th data-quarto-table-cell-role="th">Min</th>
+<th data-quarto-table-cell-role="th">Median</th>
+<th data-quarto-table-cell-role="th">Max</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">0</th>
+<td>Intercept</td>
+<td>2207.98</td>
+<td>220.54</td>
+<td>750.35</td>
+<td>2207.98</td>
+<td>4028.94</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">1</th>
+<td>Share pre-1945 homes</td>
+<td>25.62</td>
+<td>29.36</td>
+<td>-112.75</td>
+<td>25.62</td>
+<td>145.98</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">2</th>
+<td>Share EPC D–G homes</td>
+<td>41.45</td>
+<td>49.02</td>
+<td>-86.38</td>
+<td>41.45</td>
+<td>247.65</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">3</th>
+<td>Log median floor area</td>
+<td>55.84</td>
+<td>55.33</td>
+<td>-89.08</td>
+<td>55.84</td>
+<td>300.52</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">4</th>
+<td>Log income</td>
+<td>89.19</td>
+<td>51.33</td>
+<td>-132.50</td>
+<td>89.19</td>
+<td>368.16</td>
+</tr>
+<tr class="even">
+<th data-quarto-table-cell-role="th">5</th>
+<td>Share detached homes</td>
+<td>148.40</td>
+<td>192.09</td>
+<td>-973.50</td>
+<td>148.40</td>
+<td>1634.11</td>
+</tr>
+<tr class="odd">
+<th data-quarto-table-cell-role="th">6</th>
+<td>Share households ≥4 persons</td>
+<td>69.08</td>
+<td>45.90</td>
+<td>-123.66</td>
+<td>69.08</td>
+<td>229.57</td>
+</tr>
+</tbody>
+</table>
 
-Geographically Weighted Regression (GWR) Results
----------------------------------------------------------------------------
-Spatial kernel:                                           Adaptive bisquare
-Bandwidth used:                                                     150.000
-
-Diagnostic information
----------------------------------------------------------------------------
-Residual sum of squares:                                       66737182.197
-Effective number of parameters (trace(S)):                          781.589
-Degree of freedom (n - trace(S)):                                  6009.411
-Sigma estimate:                                                     105.382
-Log-likelihood:                                                  -40850.569
-AIC:                                                              83266.316
-AICc:                                                             83470.474
-BIC:                                                              88606.198
-R2:                                                                   0.887
-Adjusted R2:                                                          0.872
-Adj. alpha (95%):                                                     0.000
-Adj. critical t value (95%):                                          3.512
-
-Summary Statistics For GWR Parameter Estimates
----------------------------------------------------------------------------
-Variable                   Mean        STD        Min     Median        Max
--------------------- ---------- ---------- ---------- ---------- ----------
-X0                     2207.978    220.538    750.347   2174.820   4028.941
-X1                       25.620     29.360   -112.746     27.736    145.976
-X2                       41.445     49.019    -86.375     37.515    247.654
-X3                       55.842     55.332    -89.084     51.246    300.521
-X4                       89.186     51.328   -132.501     83.049    368.157
-X5                      148.396    192.089   -973.502    106.330   1634.113
-X6                       69.078     45.897   -123.661     70.263    229.571
-===========================================================================
-
-None</code></pre>
 </div>
 </div>
-<p>Results show substantial spatial variation:</p>
+</div>
+<p>Results show some spatial variation:</p>
 <ul>
-<li><p>In some areas, income is strongly associated with higher energy costs, reflecting consumption-driven demand</p></li>
+<li><p>In some areas, income is strongly associated with higher energy costs, reflecting consumption-driven demand.</p></li>
 <li><p>In others, the EPC D–G coefficient dominates, indicating that poor housing efficiency imposes high costs regardless of income.</p></li>
 </ul>
-<p>GWR substantially improves model fit (<span class="math inline">\(R^2 &gt; 0.88\)</span>), but is interpreted as exploratory, highlighting where mechanisms differ rather than replacing global estimates. The high <span class="math inline">\(R^2\)</span> reflects local overfitting inherent to GWR and should not be interpreted as superior explanatory power relative to the global model.”</p>
+<p>GWR substantially improves model fit (<span class="math inline">\(R^2 = 0.88\)</span>), but is interpreted as exploratory, highlighting where mechanisms differ rather than replacing global estimates. The high <span class="math inline">\(R^2\)</span> reflects local overfitting inherent to GWR and should not be interpreted as superior explanatory power relative to the global model.</p>
 </section>
 <section id="reflections-and-limitations" class="level3">
 <h3 class="anchored" data-anchor-id="reflections-and-limitations">6. Reflections and Limitations</h3>
 <p>This analysis is subject to several limitations. As an ecological study, it cannot capture within-area household heterogeneity or behavioural responses such as under-heating. Prices are assumed spatially uniform, and retrofit history is not directly observed.</p>
 <p>Residual spatial clustering reflects genuine structural heterogeneity rather than model failure. From an equity perspective, the results underline that exposure to high energy costs is shaped by place-specific housing conditions, not income alone. This reinforces the need for policy approaches that integrate housing efficiency and local context alongside income-based support.</p>
 </section>
-<section id="references" class="level2">
-<h2 class="anchored" data-anchor-id="references">References</h2>
+<section id="references" class="level2 unnumbered">
+
+
 </section>
 </section>
 
 
-<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body" role="list">
+<div id="ref-advani_energy_2013" class="csl-entry" role="listitem">
+Advani, A. <em>et al.</em> (2013) <em>Household energy use in britain: A distributional analysis</em>. Institute for Fiscal Studies. doi: <a href="https://doi.org/10.1920/re.ifs.2013.0085">10.1920/re.ifs.2013.0085</a>.
+</div>
+<div id="ref-desnz_msoa_consumption_2025" class="csl-entry" role="listitem">
+Department for Energy Security and Net Zero (2025a) <em>Electricity and gas consumption estimates at MSOA level</em>. Available at: <a href="https://www.data.gov.uk/dataset/ed629618-7b69-465d-8e0a-0546b1809fc7/electricity_and_gas_consumption_at_middle_layer_super_output_area_mlsoa_and_intermediate_geography_z">https://www.data.gov.uk/dataset/ed629618-7b69-465d-8e0a-0546b1809fc7/electricity_and_gas_consumption_at_middle_layer_super_output_area_mlsoa_and_intermediate_geography_z</a> (Accessed: December 27, 2025).
+</div>
+<div id="ref-desnz_gas_network_2025" class="csl-entry" role="listitem">
+Department for Energy Security and Net Zero (2025b) <em>MSOA estimates of properties not connected to the gas network</em>. Available at: <a href="https://www.gov.uk/government/statistics/msoa-estimates-of-households-not-connected-to-the-gas-network">https://www.gov.uk/government/statistics/msoa-estimates-of-households-not-connected-to-the-gas-network</a> (Accessed: December 22, 2025).
+</div>
+<div id="ref-desnz_subnational_consumption_2025" class="csl-entry" role="listitem">
+Department for Energy Security and Net Zero (2025c) <em>Subnational electricity and gas consumption summary report 2024</em>. Available at: <a href="https://www.gov.uk/government/statistics/subnational-electricity-and-gas-consumption-summary-report-2024/subnational-electricity-and-gas-consumption-summary-report-2024--2">https://www.gov.uk/government/statistics/subnational-electricity-and-gas-consumption-summary-report-2024/subnational-electricity-and-gas-consumption-summary-report-2024--2</a> (Accessed: December 27, 2025).
+</div>
+<div id="ref-ipsos_energy_prices_2025" class="csl-entry" role="listitem">
+Ipsos (2025) <em>Almost nine in ten britons are concerned about energy prices</em>. Available at: <a href="https://www.ipsos.com/en-uk/almost-nine-ten-britons-are-concerned-about-energy-prices">https://www.ipsos.com/en-uk/almost-nine-ten-britons-are-concerned-about-energy-prices</a> (Accessed: December 22, 2025).
+</div>
+<div id="ref-ons_census_heating_2022" class="csl-entry" role="listitem">
+Office for National Statistics (2022) <em>Census 2021: Central heating (TS046)</em>. Available at: <a href="https://statistics.ukdataservice.ac.uk/dataset/england-and-wales-census-2021-ts046-central-heating">https://statistics.ukdataservice.ac.uk/dataset/england-and-wales-census-2021-ts046-central-heating</a> (Accessed: December 27, 2025).
+</div>
+<div id="ref-ons_income_msoa_2024" class="csl-entry" role="listitem">
+Office for National Statistics (2024) <em>Income estimates for small areas, england and wales</em>. Available at: <a href="https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/incomeandwealth/bulletins/smallareamodelbasedincomeestimates/financialyearending2023">https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/incomeandwealth/bulletins/smallareamodelbasedincomeestimates/financialyearending2023</a> (Accessed: December 27, 2025).
+</div>
+<div id="ref-ons_public_opinion_2025" class="csl-entry" role="listitem">
+Office for National Statistics (2025) <em>Public opinions and social trends, great britain</em>. Available at: <a href="https://www.ons.gov.uk/peoplepopulationandcommunity/wellbeing/bulletins/publicopinionsandsocialtrendsgreatbritain/june2025">https://www.ons.gov.uk/peoplepopulationandcommunity/wellbeing/bulletins/publicopinionsandsocialtrendsgreatbritain/june2025</a> (Accessed: December 16, 2025).
+</div>
+<div id="ref-ofgem_price_cap_2024" class="csl-entry" role="listitem">
+Ofgem (2024) <em>New energy price cap level for january to march 2024</em>. Available at: <a href="https://www.ofgem.gov.uk/news/new-energy-price-cap-level-january-march-2024-starts-today">https://www.ofgem.gov.uk/news/new-energy-price-cap-level-january-march-2024-starts-today</a> (Accessed: December 22, 2025).
+</div>
+<div id="ref-ofgem_debt_2025" class="csl-entry" role="listitem">
+Ofgem (2025a) <em>Debt and arrears indicators</em>. Available at: <a href="https://www.ofgem.gov.uk/data/debt-and-arrears-indicators">https://www.ofgem.gov.uk/data/debt-and-arrears-indicators</a> (Accessed: December 27, 2025).
+</div>
+<div id="ref-ofgem_price_cap_2025" class="csl-entry" role="listitem">
+Ofgem (2025b) <em>Energy price cap explained</em>. Available at: <a href="https://www.ofgem.gov.uk/information-consumers/energy-advice-households/energy-price-cap-explained">https://www.ofgem.gov.uk/information-consumers/energy-advice-households/energy-price-cap-explained</a> (Accessed: December 27, 2025).
+</div>
+<div id="ref-oshan_mgwr_2019" class="csl-entry" role="listitem">
+Oshan, T. M. <em>et al.</em> (2019) <span>“Mgwr: A python implementation of multiscale geographically weighted regression,”</span> <em>ISPRS International Journal of Geo-Information</em>, 8(6), p. 269. doi: <a href="https://doi.org/10.3390/ijgi8060269">10.3390/ijgi8060269</a>.
+</div>
+<div id="ref-pmo_epg_2022" class="csl-entry" role="listitem">
+Prime Minister’s Office (2022) <em>Government announces energy price guarantee for families and businesses</em>. Available at: <a href="https://www.gov.uk/government/news/government-announces-energy-price-guarantee-for-families-and-businesses-while-urgently-taking-action-to-reform-broken-energy-market">https://www.gov.uk/government/news/government-announces-energy-price-guarantee-for-families-and-businesses-while-urgently-taking-action-to-reform-broken-energy-market</a> (Accessed: December 22, 2025).
+</div>
+<div id="ref-robinson_energy_2025" class="csl-entry" role="listitem">
+Robinson, E. (2025) <em>Energy bills and debt are rising yet again – here are three things that would help vulnerable households</em>, <em>The Conversation</em>. doi: <a href="https://doi.org/10.64628/AB.9r55r7hns">10.64628/AB.9r55r7hns</a>.
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
 <li id="fn1"><p>Russia-Ukraine War (<a href="https://commonslibrary.parliament.uk/research-briefings/cbp-9714/" class="uri">https://commonslibrary.parliament.uk/research-briefings/cbp-9714/</a>)<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>

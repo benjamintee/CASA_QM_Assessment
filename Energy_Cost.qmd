@@ -1,6 +1,8 @@
 ---
 date: last-modified
 bibliography: References.bib
+nocite: |
+  @*
 csl: harvard-cite-them-right.csl
 title: CASA0007 Assessment Submission
 execute:
@@ -1497,7 +1499,7 @@ Although household energy prices are nationally regulated, the costs households 
 
 As a result, some households face persistently high energy costs because they live in larger, older or less efficient homes, rely on more expensive heating systems, or have limited scope to reduce consumption. These differences reflect structural characteristics of housing rather than short-term behavioural choices alone.
 
-[Figure 4]{.underline} illustrates this uneven exposure by mapping average household energy costs across England. Higher costs are concentrated across much of the North and Midlands, and parts of the South Coast, while lower average costs are more common in parts of the Southwest and East. There is also substantial variation within regions and cities, indicating that exposure to high energy cost is shaped by local housing conditions and energy use patterns rather than geography alone.
+[Figure 4]{.underline} illustrates this uneven exposure by mapping average household energy costs across England. Higher costs are concentrated across much of the North and Midlands, and parts of the South Coast, while lower average costs are more common in parts of the Southwest and East. There is also substantial variation within regions and cities.
 
 This raises a key question: **if prices are broadly similar, why does its impact differ so sharply, and what does that imply for equitable energy policy?**
 
@@ -1653,7 +1655,7 @@ axins.text(
 )
 
 # Colour bar (BOTTOM RIGHT)
-cax = fig.add_axes([0.50, 0.08, 0.42, 0.022])
+cax = fig.add_axes([0.485, 0.086, 0.42, 0.022])
 
 cbar = mpl.colorbar.ColorbarBase(
     cax,
@@ -1708,7 +1710,7 @@ Results are summarised in [Table 1]{.underline}. Three findings stand out.
 
 1.  **Housing energy inefficiency is a central driver of high costs**. Areas with a higher share of energy-inefficient homes (EPC bands D-G), face significantly higher annual energy costs, even after accounting for income and other housing characteristics. Poor insulation and inefficient heating systems amplify the associated increase of high prices, meaning that households in these homes pay more regardless of their income position. Housing inefficiency does not merely coincide with low incomes; it actively magnifies exposure to high energy prices.
 2.  **Housing form and household composition matter**. Older and larger dwellings, detached housing and areas with more large households all face higher energy costs, reflecting greater baseline energy needs. These factors help explain why some higher-income areas still experience high absolute cost: higher incomes often coincide with larger, more energy-intensive homes.
-3.  **Income shapes households’ capacity to absorb energy costs rather than costs alone**. Higher incomes are associated with higher energy consumption and higher costs, but they also provide greater financial resilience. In contrast, areas characterised by lower incomes have far less scope to accommodate rising costs, particularly where poor housing efficiency or heating systems push cost
+3.  **Income shapes households’ capacity to absorb energy costs rather than costs alone**. Higher incomes are associated with higher energy consumption and higher costs, but they also provide greater financial resilience. In contrast, areas characterised by lower incomes have far less scope to accommodate rising costs, particularly where poor housing efficiency or heating systems push cost upwards.
 
 | Structural factor (MSOA-level) | Modelled change in annual energy cost (per HH) |
 |--------------------------------------------|----------------------------|
@@ -1789,7 +1791,66 @@ gwr_model = GWR(
 
 gwr_results = gwr_model.fit()
 
-print(gwr_results.summary())
+var_names = [
+    "Intercept",
+    "Share pre-1945 homes",
+    "Share EPC D–G homes",
+    "Log median floor area",
+    "Log income",
+    "Share detached homes",
+    "Share households ≥4 persons"
+]
+
+gwr_results.var_names = var_names
+
+gwr_summary = pd.DataFrame({
+    "Variable": var_names,
+    "Mean coefficient": gwr_results.params.mean(axis=0),
+    "Std. dev.": gwr_results.params.std(axis=0),
+    "Min": gwr_results.params.min(axis=0),
+    "Median": gwr_results.params.mean(axis=0),
+    "Max": gwr_results.params.max(axis=0),
+})
+
+# Rounding for presentation
+gwr_summary = gwr_summary.round(2)
+
+# Add a title attribute (useful for HTML / Quarto rendering)
+gwr_summary.attrs["title"] = "Summary Statistics for GWR Parameter Estimates"
+
+gwr_diagnostics = pd.DataFrame({
+    "Metric": [
+        "Effective number of parameters (trace(S))",
+        "Degrees of freedom (n − trace(S))",
+        "Sigma estimate",
+        "Log-likelihood",
+        "AIC",
+        "AICc",
+        "BIC",
+        "R²",
+        "Adjusted R²",
+    ],
+    "Value": [
+        gwr_results.tr_S,
+        gwr_results.n - gwr_results.tr_S,
+        gwr_results.scale,
+        gwr_results.llf,
+        gwr_results.aic,
+        gwr_results.aicc,
+        gwr_results.bic,
+        gwr_results.R2,
+        gwr_results.adj_R2,
+    ]
+})
+
+gwr_diagnostics = gwr_diagnostics.round(3)
+gwr_diagnostics.attrs["title"] = "GWR Diagnostic Information"
+
+gwr_diagnostics.reset_index(drop=True)
+gwr_summary.reset_index(drop=True)
+
+gwr_diagnostics
+gwr_summary
 ```
 
 ```{python}
@@ -1882,7 +1943,7 @@ ax0.axis("off")
 
 # Explanatory text (income)
 fig.text(
-    0.25, 0.82,
+    0.25, 0.815,
     "Where higher incomes translate into \nlarger increases in energy use",
     ha="center",
     va="bottom",
@@ -1939,7 +2000,7 @@ ax1.axis("off")
 
 # Explanatory text (EPC)
 fig.text(
-    0.75, 0.82,
+    0.75, 0.815,
     "Where housing inefficiency most strongly \namplifies energy costs",
     ha="center",
     va="bottom",
@@ -2009,7 +2070,7 @@ The analysis is descriptive and explanatory rather than causal. By focusing on s
 
 The analysis is conducted at MSOA level for England. MSOAs offer a balance between spatial resolution and data stability, avoiding the volatility associated with smaller geographies while preserving meaningful spatial variation.
 
-[Table 1]{.underline} summarizes the variables considered and retained in the preferred specification
+[Table 1]{.underline} summarizes variables considered and retained in the preferred specification.
 
 | Variable | Source | Methodology & assumptions |
 |---------------------|------------------|---------------------------------|
@@ -2031,9 +2092,9 @@ We assume that energy prices are nationally regulated and spatially uniform, ref
 
 #### 2.2 Exploratory analysis of data variables
 
-Exploratory analysis (Figure A1) highlights substantial right-skewness in electricity consumption and total energy costs, driven by a subset of MSOAs with high electricity reliance and larger dwellings. As household income is also right-skewed, log-transformation is applied to stabilise variance.
+Exploratory analysis ([Figure A1]{.underline}) highlights substantial right-skewness in electricity consumption and total energy costs, driven by a subset of MSOAs with high electricity reliance and larger dwellings. As household income is also right-skewed, log-transformation is applied to stabilise variance.
 
-Heating system variables are unevenly distributed across space but retained, as they represent structurally distinct energy systems with implications for electricity demand and exposure to high prices.
+Heating system variables are unevenly distributed across space but are retained, as they represent structurally distinct energy systems with implications for electricity demand and exposure to high prices.
 
 ```{python}
 #| echo: false
@@ -2223,23 +2284,25 @@ Multicollinearity is assessed using variance inflation factors and remains withi
 
 ### 4. Regression Findings
 
-Across all specifications, **structural housing characteristics and household composition emerge as the dominant drivers of energy costs**.
+Across all specifications, **structural housing characteristics and household composition** emerge as the primary drivers of variation in annual household energy costs.
 
--   A higher share of EPC D–G dwellings and pre-1945 housing is consistently associated with higher annual energy costs, even after controlling for income and dwelling size.
+-   A higher share of **energy-inefficient dwellings (EPC D–G)** and **pre-1945 housing** is consistently associated with higher energy costs, even after controlling for income and dwelling size. These effects remain stable across all model specifications, indicating that housing efficiency and age exert an independent influence on energy expenditure.
 
--   Larger dwellings and detached housing are strongly associated with higher costs, reflecting greater baseline energy demand.
+-   **Dwelling size and housing type** are also strongly associated with energy costs. Larger median floor areas and a higher share of detached housing are linked to higher expenditure, reflecting greater baseline energy demand.
 
--   Household composition plays a particularly important role: MSOAs with a higher share of households containing four or more occupants exhibit substantially higher energy costs.
+-   **Household composition plays a particularly important role.** MSOAs with a higher share of households containing four or more occupants exhibit substantially higher energy costs across all models, with this variable showing the largest coefficients throughout.
 
--   Fuel mix variables materially improve explanatory power (adjusted $R^2$) rising from $~0.58$ to $~0.70$. Electric-only heating is associated with significantly higher costs, while solid and liquid fuels are associated with lower average expenditure.
+-   The inclusion of **fuel mix variables** materially improves explanatory power, with the adjusted $R^2$ increasing from $0.572$to$0.713$. Electric-only heating is associated with significantly higher energy costs, while solid and liquid fuels and networked renewables are associated with lower average expenditure.
 
--   Urban–rural status becomes insignificant once housing and fuel characteristics are controlled for, indicating that observed urban–rural differences primarily reflect housing stock composition.
+-   The **urban–rural indicator** becomes substantively weak once housing and fuel characteristics are included, suggesting that observed urban–rural differences primarily reflect housing stock composition rather than settlement type.
 
--   Region fixed effects marginally improve model fit (final adjusted $R^2 = 0.74$) likely capturing some climatic variation and regional housing patterns.
+-   Adding **region fixed effects** further improves model fit (final adjusted $R^2$ = $0.745$), likely capturing residual climatic variation and regional housing patterns, without materially altering the main coefficient estimates.
 
 ```{python}
 #| echo: false
 #| warning: false
+
+# Set Regression diagnostics function - Developed with support from ChatGPT
 def plot_regression_diagnostics(model, X):
     """
     Diagnostics dashboard closely mirroring performance::check_model()
@@ -2286,21 +2349,26 @@ def plot_regression_diagnostics(model, X):
         .reset_index(drop=True)
     )
 
-    # Generic plotting labels (for reproducibility)
     vif_df["Plot_label"] = [f"Var_{i+1}" for i in range(len(vif_df))]
 
     # --------------------------------------------------
     # 3. Layout
     # --------------------------------------------------
-    fig = plt.figure(figsize=(8, 6.5))
+    fig = plt.figure(figsize=(8, 7))
     gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 0.8])
 
     def title(ax, main, sub):
-        ax.set_title(main, loc="left", fontsize=13, fontweight="bold", pad=22)
+        ax.set_title(
+            main,
+            loc="left",
+            fontsize=13,
+            fontweight="bold",
+            pad=18            # tighter title spacing
+        )
         ax.text(
-            0, 1.03, sub,
+            0, 1.05, sub,     # closer to title, still HTML-safe
             transform=ax.transAxes,
-            fontsize=9.5,
+            fontsize=9,
             ha="left",
             va="bottom"
         )
@@ -2365,14 +2433,10 @@ def plot_regression_diagnostics(model, X):
     ax3.axvline(10, ls="--", color="black")
     ax3.set_xlim(0, xmax)
 
-    title(
-        ax3,
-        "Collinearity",
-        "Higher values indicate collinearity"
-    )
-
+    title(ax3, "Collinearity", "Higher values indicate collinearity")
     ax3.set_xlabel("Variance Inflation Factor (VIF)")
     ax3.set_ylabel("")
+    ax3.tick_params(axis="y", labelsize=9)
 
     # --------------------------------------------------
     # Normality (Q–Q deviation)
@@ -2390,8 +2454,7 @@ def plot_regression_diagnostics(model, X):
     )
     ax4.axhline(0, color="green", lw=2)
     ax4.set_ylim(-1, 4)
-    title(ax4, "Normality of Residuals",
-          "Dots should fall along the line")
+    title(ax4, "Normality of Residuals", "Dots should fall along the line")
     ax4.set_xlabel("Standard normal quantiles")
     ax4.set_ylabel("Sample quantile deviations")
 
@@ -2405,15 +2468,35 @@ def plot_regression_diagnostics(model, X):
     ax5.set_xlabel("Standardised residuals")
     ax5.set_ylabel("Density")
 
-    # Empty panel
     ax6 = fig.add_subplot(gs[2, 1])
     ax6.axis("off")
 
-    fig.subplots_adjust(hspace=0.7)
-    plt.show()
+    # --------------------------------------------------
+    # Final spacing (maximised chart area)
+    # --------------------------------------------------
+    fig.subplots_adjust(
+        top=0.95,        
+        bottom=0.06,
+        left=0.07,
+        right=0.99,
+        hspace=0.75,
+        wspace=0.30
+    )
 
-    # Return full VIF table with true variable names
-    return vif_df[["Variable", "VIF"]]
+    fig.suptitle(
+        "Figure A4: Regression Diagnostics Dashboard\n"
+        "(Adapted from R performance::check_model())",
+        x=0.01,
+        y=0.975,        # lifted above panel titles
+        ha="left",
+        fontsize=14,
+        fontweight="bold"
+    )
+
+    # Reserve vertical space for suptitle
+    fig.tight_layout(rect=[0, 0, 1, 0.99])
+
+    plt.show()
 ```
 
 ```{python}
@@ -2509,7 +2592,7 @@ results_table = summary_col(
 print(results_table)
 ```
 
-Residual diagnostics ([Figure A4]{.underline}) indicate satisfactory linearity and variance homogeneity, with mild right-skewness driven by a small number of high-electricity-cost MSOAs, driven by a small number of high-cost MSOAs characterised by larger dwellings, higher electricity reliance and limited gas connectivity.
+Residual diagnostics ([Figure A3)]{.underline} indicate satisfactory linearity and variance homogeneity, with mild right-skewness associated with a small number of high-cost MSOAs that tend to have larger dwellings, higher reliance on electricity, and limited gas grid connectivity.
 
 ```{python}
 #| echo: false
@@ -2519,7 +2602,7 @@ plot_regression_diagnostics(model_4, X_4)
 
 ### 5. Unpacking spatial dependence via Spatial Error Model (SEM) and Geographically Weighted Regression (GWR)
 
-Global Moran’s I tests on OLS residuals reveal significant positive spatial autocorrelation ($I = 0.43$), indicating that neighbouring MSOAs share some unobserved characteristics influencing energy costs.
+Global Moran’s I tests on OLS residuals revealed positive spatial autocorrelation ($I = 0.43$), indicating that neighbouring MSOAs share some unobserved characteristics influencing energy costs.
 
 ```{python}
 #| echo: false
@@ -2573,7 +2656,7 @@ X_df = pd.concat(
 X_sp = np.hstack([np.ones((X_df.shape[0], 1)), X_df.values])
 
 # Variable names (constant first!)
-x_names = ["const"] + list(X_df.columns)
+x_names =  ["const"] + list(X_df.columns)
 
 # Row-standardise weights
 w.transform = "r"
@@ -2625,23 +2708,25 @@ print(mi_sem.I, mi_sem.p_sim)
 print(mi_sar.I, mi_sar.p_sim)
 ```
 
-Importantly, coefficient magnitudes and signs remain broadly consistent with OLS results. This suggests that the main findings are robust, while acknowledging that exposure to high energy costs is partially shaped by spatially clustered, unobserved characteristics rather than indicating misspecification of the core structural relationships.
+Importantly, **coefficient magnitudes and signs remain broadly consistent with OLS results**. This suggests that the main findings are robust, while acknowledging that exposure to high energy costs is partially shaped by spatially clustered, unobserved characteristics rather than misspecification of the core structural relationships.
 
-Geographically Weighted Regression (GWR) was further used to explore spatial heterogeneity in coefficients, focusing on income and EPC D–G share. An adaptive bandwidth is selected via AICc.
+Geographically Weighted Regression (GWR) was further used to **explore spatial heterogeneity in coefficients**, focusing on income and EPC D–G share. An adaptive bandwidth is selected via AICc.
 
 ```{python}
 #| echo: false
 #| warning: false
-print(gwr_results.summary())
+#| results: asis
+gwr_diagnostics
+gwr_summary
 ```
 
-Results show substantial spatial variation:
+Results show some spatial variation:
 
--   In some areas, income is strongly associated with higher energy costs, reflecting consumption-driven demand
+-   In some areas, income is strongly associated with higher energy costs, reflecting consumption-driven demand.
 
 -   In others, the EPC D–G coefficient dominates, indicating that poor housing efficiency imposes high costs regardless of income.
 
-GWR substantially improves model fit ($R^2 > 0.88$), but is interpreted as exploratory, highlighting where mechanisms differ rather than replacing global estimates. The high $R^2$ reflects local overfitting inherent to GWR and should not be interpreted as superior explanatory power relative to the global model.”
+GWR substantially improves model fit ($R^2 = 0.88$), but is interpreted as exploratory, highlighting where mechanisms differ rather than replacing global estimates. The high $R^2$ reflects local overfitting inherent to GWR and should not be interpreted as superior explanatory power relative to the global model.
 
 ### 6. Reflections and Limitations
 

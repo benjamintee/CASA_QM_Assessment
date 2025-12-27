@@ -5,4 +5,6 @@ This repository contains files relating to the Individual Assignment for the CAS
 
 The assignment overview can be fouund [here](https://huanfachen.github.io/QM/assessments/)
 
-Group project submission can be found [here](https://benjamintee.github.io/CASA_FSDS_Project/Group_Work.html)
+The criteria and mark scheme can be found [here](https://huanfachen.github.io/QM/assessments/#mark-scheme)
+
+The assessment submission can be found [here](https://benjamintee.github.io/CASA_FSDS_Project/Group_Work.html)

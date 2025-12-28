@@ -36,17 +36,6 @@ format:
     number-sections: false
     colorlinks: true
     highlight-style: github
-jupyter:
-  jupytext:
-    text_representation:
-      extension: .qmd
-      format_name: quarto
-      format_version: '1.0'
-      jupytext_version: 1.15.2
-  kernelspec:
-    display_name: Python 3 (ipykernel)
-    language: python
-    name: python3
 ---
 
 ## Declaration of Authorship {.unnumbered .unlisted}
@@ -2292,7 +2281,7 @@ Across all specifications, **structural housing characteristics and household co
 
 -   **Household composition plays a particularly important role.** MSOAs with a higher share of households containing four or more occupants exhibit substantially higher energy costs across all models, with this variable showing the largest coefficients throughout.
 
--   The inclusion of **fuel mix variables** materially improves explanatory power, with the adjusted $R^2$ increasing from $0.572$to$0.713$. Electric-only heating is associated with significantly higher energy costs, while solid and liquid fuels and networked renewables are associated with lower average expenditure.
+-   The inclusion of **fuel mix variables** materially improves explanatory power, with the adjusted $R^2$ increasing from $0.572$ to $0.713$. Electric-only heating is associated with significantly higher energy costs, while solid and liquid fuels and networked renewables are associated with lower average expenditure.
 
 -   The **urban–rural indicator** becomes substantively weak once housing and fuel characteristics are included, suggesting that observed urban–rural differences primarily reflect housing stock composition rather than settlement type.
 
@@ -2484,7 +2473,7 @@ def plot_regression_diagnostics(model, X):
     )
 
     fig.suptitle(
-        "Figure A4: Regression Diagnostics Dashboard\n"
+        "Figure A3: Regression Diagnostics Dashboard\n"
         "(Adapted from R performance::check_model())",
         x=0.01,
         y=0.975,        # lifted above panel titles
@@ -2544,7 +2533,7 @@ reg_df["urban_dummy"] = (reg_df["Ruralurban"] == "Urban").astype(int)
 
 X_3 = reg_df[
     ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
-     "share_detached", "share_hh_4plus", "urban_dummy"] + fuel_cols
+     "share_detached", "share_hh_4plus", "urban_dummy"] + fuel_cols 
 ]
 X_3 = sm.add_constant(X_3)
 
@@ -2673,44 +2662,9 @@ sem_model = ML_Error(
 print(sem_model.summary)
 ```
 
-```{python}
-#| echo: false
-#| warning: false
-#| output: false
+The findings are robust: **coefficient signs and magnitudes remain consistent with OLS estimates**. This suggests that while spatially clustered unobserved factors influence energy cost exposure, the core structural relationships are correctly specified.
 
-# SAR model
-sar_model = ML_Lag(
-    y_sp,
-    X_sp,
-    w=w,
-    name_y="annual_energy_cost",
-    name_x=x_names,
-)
-
-print(sar_model.summary)
-print("OLS AIC:", model_4.aic)
-print("SAR AIC:", sar_model.aic)
-print("SEM AIC:", sem_model.aic)
-```
-
-```{python}
-#| echo: false
-#| warning: false
-#| output: false
-from esda.moran import Moran
-ols_resid = model_4.resid
-mi_OLS = Moran(ols_resid, w)
-mi_sem = Moran(sem_model.u, w)
-mi_sar = Moran(sar_model.u, w)
-
-print(mi_OLS.I, mi_OLS.p_sim)
-print(mi_sem.I, mi_sem.p_sim)
-print(mi_sar.I, mi_sar.p_sim)
-```
-
-Importantly, **coefficient magnitudes and signs remain broadly consistent with OLS results**. This suggests that the main findings are robust, while acknowledging that exposure to high energy costs is partially shaped by spatially clustered, unobserved characteristics rather than misspecification of the core structural relationships.
-
-Geographically Weighted Regression (GWR) was further used to **explore spatial heterogeneity in coefficients**, focusing on income and EPC D–G share. An adaptive bandwidth is selected via AICc.
+"To **explore spatial heterogeneity in coefficients**, Geographically Weighted Regression (GWR) was employed to examine how the impacts of income and housing efficiency vary geographically. An adaptive bandwidth was selected via AICc.
 
 ```{python}
 #| echo: false
@@ -2720,13 +2674,13 @@ gwr_diagnostics
 gwr_summary
 ```
 
-Results show some spatial variation:
+Additional findings include:
 
--   In some areas, income is strongly associated with higher energy costs, reflecting consumption-driven demand.
+-   **Income-Driven Areas**: Higher energy costs align with income, suggesting consumption-led demand.
 
--   In others, the EPC D–G coefficient dominates, indicating that poor housing efficiency imposes high costs regardless of income.
+-   **Efficiency-Driven Areas**: High EPC D–G coefficients indicate that poor housing quality drives costs regardless of household wealth.
 
-GWR substantially improves model fit ($R^2 = 0.88$), but is interpreted as exploratory, highlighting where mechanisms differ rather than replacing global estimates. The high $R^2$ reflects local overfitting inherent to GWR and should not be interpreted as superior explanatory power relative to the global model.
+While GWR reached an $R^2$ of 0.88, these results serve an exploratory purpose. The elevated fit reflects GWR’s inherent local overfitting and should not be viewed as a formal refutation of the global model’s performance.
 
 ### 6. Reflections and Limitations
 
@@ -2735,90 +2689,3 @@ This analysis is subject to several limitations. As an ecological study, it cann
 Residual spatial clustering reflects genuine structural heterogeneity rather than model failure. From an equity perspective, the results underline that exposure to high energy costs is shaped by place-specific housing conditions, not income alone. This reinforces the need for policy approaches that integrate housing efficiency and local context alongside income-based support.
 
 ## References
-
-```{python}
-#| echo: false
-#| warning: false
-#| output: false
-reg_df["ols_resid"] = model_4.resid
-
-gdf_plot = msoa_gdf.merge(
-    reg_df[["MSOA_code", "ols_resid"]],
-    on="MSOA_code",
-    how="left"
-)
-
-fig, ax = plt.subplots(1, 1, figsize=(8, 10))
-
-gdf_plot.plot(
-    column="ols_resid",
-    cmap="RdBu_r",
-    linewidth=0,
-    legend=True,
-    ax=ax,
-    vmin=-gdf_plot["ols_resid"].abs().quantile(0.95),
-    vmax= gdf_plot["ols_resid"].abs().quantile(0.95)
-)
-
-ax.set_title("OLS Residuals: Annual Energy Cost (Model 4)", fontsize=14)
-ax.axis("off")
-
-plt.tight_layout()
-plt.show()
-```
-
-```{python}
-#| echo: false
-#| warning: false
-#| output: false
-reg_df = reg_df.copy()
-
-reg_df["fitted"]   = model_4.fittedvalues
-reg_df["residual"] = model_4.resid
-reg_df["pos_residual"] = reg_df["residual"]
-tail_cutoff = reg_df["pos_residual"].quantile(0.99)
-
-tail_df = (
-    reg_df
-    .loc[reg_df["pos_residual"] >= tail_cutoff]
-    .copy()
-)
-
-tail_df.shape[0]
-
-compare_vars = [
-   "share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
-   "share_detached", "share_hh_4plus",  "share_electric",
-    "share_solid_liquid",
-    "share_low_central",
-    "share_network_renewable", "urban_dummy",
-]
-
-comparison = pd.DataFrame({
-    "Tail_mean": tail_df[compare_vars].mean(),
-    "All_mean":  reg_df[compare_vars].mean()
-})
-
-comparison["Difference"] = (
-    comparison["Tail_mean"] - comparison["All_mean"]
-)
-
-comparison.sort_values("Difference", ascending=False)
-
-sns.scatterplot(
-    data=reg_df,
-    x="fitted",
-    y="residual",
-    alpha=0.3
-)
-
-sns.scatterplot(
-    data=tail_df,
-    x="fitted",
-    y="residual",
-    color="red"
-)
-
-plt.axhline(0, linestyle="--", color="black")
-plt.show()
-```

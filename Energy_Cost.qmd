@@ -19,16 +19,22 @@ format:
       collapsed: false
       smooth_scroll: true
   pdf:
+    dpi: 150
     include-in-header:
       text: |
+        \usepackage{float}
+        \usepackage{placeins}
         \addtokomafont{disposition}{\rmfamily}
+        \AtBeginEnvironment{verbatim}{\scriptsize}
+        \AtBeginEnvironment{table}{\footnotesize}
+        \AtBeginEnvironment{longtable}{\footnotesize}
     mainfont: "Source Serif 4"
     sansfont: "Source Sans 3"
     monofont: "Source Code Pro"
     papersize: a4
     geometry:
-      - top=25mm
-      - left=40mm
+      - top=20mm
+      - left=30mm
       - right=30mm
       - bottom=25mm
       - heightrounded
@@ -45,6 +51,10 @@ Date: 12 January 2026 (Tues)
 Student Number: 25049107
 
 I, Tee Chin Min Benjamin, pledge my honour that the work presented in this assessment is my own. Where information has been derived from other sources, I confirm that this has been indicated in the work. ChatGPT has been used to sharpen the language and terms used in the article and support the development of the customized graphics used in this report.
+
+Source code and data can be found at the [attached]{.underline} (<https://github.com/benjamintee/CASA_QM_Assessment>)
+
+HTML version can be found at the [attached]{.underline} (<https://benjamintee.github.io/CASA_QM_Assessment/Energy_Cost.html>)
 
 {{< pagebreak >}}
 
@@ -99,6 +109,16 @@ for bib in bib_name:
         print("Download complete!")
     else:
         print(f"{bib_name} already exists at {bib_path}")
+```
+
+```{python}
+#| label: Set Fig resolution
+#| echo: false
+#| warning: false
+#| output: false
+#import matplotlib as mpl
+#mpl.rcParams["savefig.dpi"] = 150
+#mpl.rcParams["figure.dpi"] = 150
 ```
 
 ```{python}
@@ -488,7 +508,7 @@ heating_groups = {
         "No central heating",
         "Other central heating only"
     ],
-    "network_renewable": [
+    "renewable": [
         "District or communal heat networks only",
         "Renewable energy only",
         "Two or more types of central heating (not including renewable energy)",
@@ -659,7 +679,7 @@ msoa_rgn = (
 
 msoa_rgn["region"] = msoa_rgn["region"].replace(
     "Yorkshire and The Humber",
-    "Yorkshire & The Humber"
+    "Yorkshire"
 )
 
 # Load MSOA → Rural or Urban lookup
@@ -717,7 +737,7 @@ msoa_agg = (
            on="MSOA_code", how="left")
     .merge(large_hh[["MSOA_code", "share_hh_4plus"]], on="MSOA_code", how="left")
     .merge(mean_hh_size[["MSOA_code", "mean_hh_size"]], on="MSOA_code", how="left")
-    .merge(fuel_mix[["MSOA_code", "share_electric", "share_solid_liquid", "share_low_central", "share_network_renewable"]], on= "MSOA_code", how="left")
+    .merge(fuel_mix[["MSOA_code", "share_electric", "share_solid_liquid", "share_low_central", "share_renewable"]], on= "MSOA_code", how="left")
     .merge(housing_shares[["MSOA_code", "share_detached", "share_flats_purpose_built"]],
            on="MSOA_code", how="left")
     .merge(msoa_gasgrid[["MSOA_code", "share_not_gas_grid"]],
@@ -827,7 +847,7 @@ reg_df = (
             "share_electric",
             "share_solid_liquid",
             "share_low_central",
-            "share_network_renewable",
+            "share_renewable",
             "region",
             "Ruralurban"
         ]
@@ -916,26 +936,23 @@ cities_gdf = gpd.GeoDataFrame(
 )
 ```
 
-```         
-```
-
-## England's energy crisis is no longer about volatility - its about persistence and inequality.
+## England's energy crisis is no longer about volatility - it's about persistence and inequality.
 
 *Date: 12 Jan 2026*
 
-While headline energy prices have eased since 2022, household energy bills in England remain far above pre-crisis levels. What has emerged is not a short-lived shock, but a sustained financial strain. When high energy costs persist, they begin to shape household finances and regional inequalities. Understanding who is most exposed, and why, is central to designing effective energy policy that goes beyond short-term subsidies.
+While headline energy prices have eased since 2022, household energy bills in England remain above pre-crisis levels. What has emerged is not a short-lived shock, but a sustained financial burden. When high energy costs persist, they begin to shape household finances and regional inequalities. Understanding who is most exposed, and why, is central to designing effective energy policy.
 
 ### From shock to persistence
 
-The sharp rise in energy cost in 2022 was driven by global wholesale gas prices and exacerbated by geopolitical shocks[^1]. Since then, wholesale prices have moderated, and the government’s Energy Price Guarantee (EPG) temporarily capped household exposure at the height of the crisis[^2].
+The sharp rise in energy cost in 2022 was driven by global wholesale gas prices and exacerbated by geopolitical shocks[^1]. Since then, wholesale prices have moderated. The government’s Energy Price Guarantee (EPG) temporarily also capped household exposure at the height of the crisis[^2].
 
-[^1]: Russia-Ukraine War (<https://commonslibrary.parliament.uk/research-briefings/cbp-9714/>)
+[^1]: Russia-Ukraine War [@bolton_gas_2025]
 
-[^2]: In Sep 22, then-Prime Minister Elizabeth Truss announced the implementation of an Energy Price Guarantee (EPG) which meant that a typical UK household would pay up to £2,500 a year on their energy bill for the next two years. <https://www.gov.uk/government/news/government-announces-energy-price-guarantee-for-families-and-businesses-while-urgently-taking-action-to-reform-broken-energy-market>
+[^2]: In Sep 22, then-Prime Minister Elizabeth Truss implemented the Energy Price Guarantee (EPG) to cap the typical UK household energy bill at £2,500 a year for the next two years [@pmo_epg_2022].
 
-Yet, this has not returned household costs to pre-2021 norms. Latest estimates show that the energy price cap remains around £600 (45%) higher than before the crisis ([Figure 1]{.underline}). Moreover, the cap is projected to rise again in the coming quarters[^3]. While volatility has eased, prices have settled at historically high levels.
+Yet, this has not returned household bills to pre-2021 norms. Latest estimates show that the energy price cap remains around £600 (45%) higher than before the crisis ([Figure 1]{.underline}). Moreover, the cap is projected to rise again in the coming quarters[^3]. While volatility has eased, prices have settled at historically high levels.
 
-[^3]: Cornwall insights forecasts that the price cap for energy bills is expected to rise by 3.2% in 2Q26, to take into account increases in network costs for electricity. <https://www.cornwall-insight.com/press-and-media/press-release/bills-remain-stable-but-new-forecast-signals-increases-in-april/>
+[^3]: Cornwall insights forecasts that the price cap for energy bills is expected to rise by 3.2% in 2Q26, to account for increases in network costs for electricity [@cornwall_insight_2025].
 
 ```{python}
 #| label: Summary of data from Ofgem on the Energy Price Cap 
@@ -1167,7 +1184,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-This persistence places growing pressure on households. Average levels of energy debt and the number of households in arrears have risen sharply since 2021 ([Figure 2]{.underline}), suggesting that many have been unable to absorb higher costs through behavioural adjustments or savings alone.
+This persistence places growing pressure on households. Average levels of energy debt and the number of households in arrears have risen sharply since 2021 ([Figure 2]{.underline}), suggesting that many have been unable to absorb higher costs through behavioural adjustments or savings alone [@ofgem_debt_2025].
 
 ```{python}
 #| lst-label: Figure 2 - Average levels of energy debt and rising number of households in arrears
@@ -1310,11 +1327,9 @@ plt.tight_layout(rect=[0, 0, 1, 0.98])
 plt.show()
 ```
 
-While the impact is most acute for lower-income households, higher energy costs are also squeezing the broad-middle. At least 15% of middle-income households now report struggling to heat their homes adequately[^4]. It is therefore unsurprising that energy costs remain at the top of public concerns. A March 2025 IPSOS UK survey[^5] found that close to nine in ten respondents (88%) were worried about the price households pay for home energy — a figure unchanged since the height of the crisis ([Figure 3]{.underline}).
+While the impact is most acute for lower-income households, higher energy costs are also squeezing the broad-middle. At least 15% of middle-income households now report struggling to heat their homes adequately [@cook_2025]. It is therefore unsurprising that energy costs remain at the top of public concerns. A March 2025 IPSOS UK survey[^4] found that close to nine in ten respondents (88%) were worried about the price households pay for energy — a figure unchanged since the height of the crisis ([Figure 3]{.underline}).
 
-[^4]: Analysis by Joseph Rowntree Foundation using data from Family Resources Survey 2023/2024, Department for Work and Pensions. <https://www.jrf.org.uk/cost-of-living/energy-affordability-how-to-reduce-bills-for-majority-of-households>
-
-[^5]: <https://www.ipsos.com/en-uk/almost-nine-ten-britons-are-concerned-about-energy-prices>
+[^4]: <https://www.ipsos.com/en-uk/almost-nine-ten-britons-are-concerned-about-energy-prices>
 
 ```{python}
 #| lst-label: Figure 3 - Sentiment data on energy burden
@@ -1484,7 +1499,7 @@ plt.show()
 
 ### Exposure to high energy costs is uneven across England
 
-Although household energy prices are nationally regulated, the costs households face are far from uniform leading to unequal outcomes. Average bills depend not only on prices, but on how much energy households consume and how efficiently their homes convert energy into power.
+Although household energy prices are nationally regulated, the costs households face are far from uniform. Average bills depend not only on prices, but on how much energy households consume and how efficiently their homes convert energy into power.
 
 As a result, some households face persistently high energy costs because they live in larger, older or less efficient homes, rely on more expensive heating systems, or have limited scope to reduce consumption. These differences reflect structural characteristics of housing rather than short-term behavioural choices alone.
 
@@ -1528,16 +1543,17 @@ scotland_clip.plot(
     ax=ax,
     color="#e4e4e4",
     linewidth=0,
+    rasterized=True,
     zorder=0)
 
 # Wales + NA MSOAs (grey)
 msoa_gdf.loc[
     ~msoa_gdf["MSOA_code"].str.startswith("E")
-].plot(ax=ax, color="#e4e4e4", linewidth=0, zorder=1)
+].plot(ax=ax, color="#e4e4e4", linewidth=0, rasterized=True, zorder=1)
 
 msoa_gdf_merged.loc[
     msoa_gdf_merged["annual_energy_cost"].isna()
-].plot(ax=ax, color="#e4e4e4", linewidth=0, zorder=1)
+].plot(ax=ax, color="#e4e4e4", linewidth=0, rasterized=True, zorder=1)
 
 # England MSOAs (data)
 msoa_gdf_merged.loc[
@@ -1548,6 +1564,7 @@ msoa_gdf_merged.loc[
     cmap=cmap,
     norm=norm,
     linewidth=0,
+    rasterized=True,
     zorder=2
 )
 
@@ -1575,6 +1592,7 @@ cities_gdf.plot(
     color="white",
     edgecolor="black",
     linewidth=0.6,
+    rasterized=True, 
     markersize=35,
     zorder=6
 )
@@ -1607,7 +1625,7 @@ for spine in axins.spines.values():
     spine.set_edgecolor("black")
 
 london_msoa[london_msoa["annual_energy_cost"].isna()].plot(
-    ax=axins, color="#e4e4e4", linewidth=0
+    ax=axins, color="#e4e4e4", linewidth=0, rasterized=True
 )
 
 london_msoa[london_msoa["annual_energy_cost"].notna()].plot(
@@ -1615,7 +1633,8 @@ london_msoa[london_msoa["annual_energy_cost"].notna()].plot(
     ax=axins,
     cmap=cmap,
     norm=norm,
-    linewidth=0
+    linewidth=0, 
+    rasterized=True, 
 )
 
 LA.boundary.plot(
@@ -1693,11 +1712,11 @@ plt.show()
 
 ### What drives differences in household energy costs?
 
-To explore these drivers, we estimate a multivariate model that relates average household energy costs to building age and energy efficiency, dwelling characteristics, household composition and heating infrastructure, while controlling for regional differences. We aim to identify which structural factors are most strongly associated with persistently high energy costs.
+To explore these drivers, we estimate a multivariate model that relates average household energy costs to building age and energy efficiency, dwelling characteristics, household composition and heating infrastructure, while controlling for regional differences. We aim to identify structural factors that are most strongly associated with high energy costs.
 
 Results are summarised in [Table 1]{.underline}. Three findings stand out.
 
-1.  **Housing energy inefficiency is a central driver of high costs**. Areas with a higher share of energy-inefficient homes (EPC bands D-G), face significantly higher annual energy costs, even after accounting for income and other housing characteristics. Poor insulation and inefficient heating systems amplify the associated increase of high prices, meaning that households in these homes pay more regardless of their income position. Housing inefficiency does not merely coincide with low incomes; it actively magnifies exposure to high energy prices.
+1.  **Housing energy inefficiency is a central driver of high costs**. Areas with a higher share of energy-inefficient homes (EPC bands D-G), face significantly higher annual energy costs, even after accounting for income and other housing characteristics. Poor insulation and inefficient heating systems amplify the associated increase of high prices, meaning that households in these homes pay more regardless of their income position.
 2.  **Housing form and household composition matter**. Older and larger dwellings, detached housing and areas with more large households all face higher energy costs, reflecting greater baseline energy needs. These factors help explain why some higher-income areas still experience high absolute cost: higher incomes often coincide with larger, more energy-intensive homes.
 3.  **Income shapes households’ capacity to absorb energy costs rather than costs alone**. Higher incomes are associated with higher energy consumption and higher costs, but they also provide greater financial resilience. In contrast, areas characterised by lower incomes have far less scope to accommodate rising costs, particularly where poor housing efficiency or heating systems push cost upwards.
 
@@ -1710,15 +1729,17 @@ Results are summarised in [Table 1]{.underline}. Three findings stand out.
 | +10% increase in household income | ≈+£50-55 |
 | +10pp share of pre-1945 housing | ≈+£15-20 |
 
-*Note: Estimates are based on the preferred OLS specification controlling for housing characteristics, heating mix, urban–rural status and region. Effects are indicative averages and reflect associations rather than causal impact*.
+: Summary of Key Regression Findings
 
-These findings explain why financial pressure extends beyond the lowest-income groups. A substantial share of middle-income households report struggling with energy bills not solely because they consume unusually large amounts of energy, but because structural features expose them to persistently high costs. In equity terms, households with similar incomes can face different energy pressures depending on where and how they live.
+*Note: Effects are indicative averages and reflect associations rather than causal impact*.
+
+These findings explain why financial pressure may extend beyond the lowest-income groups. A substantial share of middle-income households report struggling with energy bills not solely because they consume unusually large amounts of energy, but because structural features expose them to persistently high costs. In equity terms, households with similar incomes can face different energy pressures depending on where and how they live.
 
 ### Why place still matters
 
-Even after accounting for income, housing characteristics and heating systems, some spatial variation in energy costs remains. This reflects localised differences in heating infrastructure, housing stock composition and settlement patterns that shape how households experience nationally regulated energy prices.
+Even after accounting for income, housing characteristics and heating systems, some spatial variation in energy costs remains. This variation persists after controlling for regional differences, indicating finer localised differences such as housing stock composition, settlement patterns that shape how households experience energy prices.
 
-[Figure 5]{.underline} shows how the influence of income and energy efficiency vary across England. In some areas, higher incomes are closely associated with higher energy costs, reflecting consumption linked to larger or more energy-intensive homes. In others, income plays a much weaker role. In contrast, the cost penalty associated with poor housing efficiency is uneven, with inefficient homes driving higher cost in some places but less so in others.
+Using a geographically weighted regression, [Figure 5]{.underline} shows how the influence of income and energy efficiency vary across England. In some areas, higher incomes are closely associated with higher energy costs, reflecting consumption linked to larger or more energy-intensive homes. In others, income plays a much weaker role. In contrast, the cost penalty associated with poor housing efficiency is uneven, with inefficient homes driving higher cost in some places but less so in others.
 
 ```{python}
 #| echo: false
@@ -1794,10 +1815,10 @@ gwr_results.var_names = var_names
 
 gwr_summary = pd.DataFrame({
     "Variable": var_names,
-    "Mean coefficient": gwr_results.params.mean(axis=0),
+    "Coefficient": gwr_results.params.mean(axis=0),
     "Std. dev.": gwr_results.params.std(axis=0),
     "Min": gwr_results.params.min(axis=0),
-    "Median": gwr_results.params.mean(axis=0),
+    "Mean": gwr_results.params.mean(axis=0),
     "Max": gwr_results.params.max(axis=0),
 })
 
@@ -1911,7 +1932,7 @@ msoa_gdf.loc[
 
 msoa_gdf_merged.loc[
     msoa_gdf_merged["annual_energy_cost"].isna()
-].plot(ax=ax0, color="#e4e4e4", linewidth=0, zorder=1)
+].plot(ax=ax0, color="#e4e4e4", linewidth=0, rasterized=True, zorder=1)
 
 msoa_gdf_valid.plot(
     column="beta_income_clip",
@@ -1919,6 +1940,7 @@ msoa_gdf_valid.plot(
     alpha = 0.90,
     norm=income_norm,
     linewidth=0,
+    rasterized=True, 
     ax=ax0
 )
 
@@ -1960,6 +1982,7 @@ scotland_clip.plot(
     ax=ax1,
     color="#e4e4e4",
     linewidth=0,
+    rasterized=True, 
     zorder=0)
 
 msoa_gdf.loc[
@@ -1968,7 +1991,7 @@ msoa_gdf.loc[
 
 msoa_gdf_merged.loc[
     msoa_gdf_merged["annual_energy_cost"].isna()
-].plot(ax=ax1, color="#e4e4e4", linewidth=0, zorder=1)
+].plot(ax=ax1, color="#e4e4e4", linewidth=0, rasterized=True, zorder=1)
 
 msoa_gdf_valid.plot(
     column="beta_epcDG_clip",
@@ -1976,6 +1999,7 @@ msoa_gdf_valid.plot(
     alpha = 0.92, 
     norm=epc_norm,
     linewidth=0,
+    rasterized=True, 
     ax=ax1
 )
 
@@ -2029,21 +2053,21 @@ plt.tight_layout(rect=[0, 0, 1, 1])
 plt.show()
 ```
 
-### Towards more equitable policy outcomes
+### Towards Equitable Policy: From Relief to Resilience
 
-What does this mean for policy?
+These findings spur the following policy considerations:
 
-1.  Blanket price suppression and universal subsidies are blunt instruments. While they reduce short-term hardship and are politically expedient, they may not address the structural reasons why some households face higher costs than others.
+-   **Moving Beyond Blunt Instruments:** While universal subsidies are politically expedient and provide immediate relief, they are blunt instruments that fail to address structural drivers. These measures treat symptoms, often subsidizing consumption for those who do not need it while failing to provide deep support for those in the most inefficient homes.
 
-2.  Sustained investment in housing energy efficiency offers an effective long-term responses to high energy costs. Improving insulation and upgrading heating systems directly lowers cost and reduces exposure to future price shocks, particularly where inefficient housing imposes the largest cost penalties.
+-   **Efficiency as Long-Term Protection:** Sustained investment in housing energy efficiency, such as insulation and heating upgrades, remains the most effective long-term defense against structurally high prices. This is especially critical in areas where poor housing stock imposes "efficiency penalties" on residents regardless of their income.
 
-3.  Income matters for affordability, but place matters for exposure. Relying solely on national income thresholds risks overlooking households who face structurally high energy costs because of where and how they live. Given spatial heterogeneity, more granular, place-sensitive approaches may be needed to ensure support reaches those most exposed.
+-   **Emphasis on Place-Based Targeting:** The spatial heterogeneity identified in this study suggests that national income thresholds alone are insufficient. To ensure support reaches those most exposed, policy must become "place-sensitive," accounting for local housing conditions and structural vulnerabilities that income data alone might overlook.
 
-As energy prices settle at a higher level, the challenge for policymakers is no longer how to smooth volatility, but how to prevent nationally regulated prices from becoming a permanent source of inequality, working towards an energy system that is both efficient and equitable.
-
-{{< pagebreak >}}
+As energy prices settle at a higher level, the challenge for policymakers is no longer how to smooth volatility, but how to prevent nationally regulated prices from deepening inequality, and to shape an energy system that is both efficient and equitable.
 
 ------------------------------------------------------------------------
+
+{{< pagebreak >}}
 
 # Technical Appendix
 
@@ -2057,33 +2081,29 @@ The analysis is descriptive and explanatory rather than causal. By focusing on s
 
 #### 2.1 Spatial unit analysis and data sources
 
-The analysis is conducted at MSOA level for England. MSOAs offer a balance between spatial resolution and data stability, avoiding the volatility associated with smaller geographies while preserving meaningful spatial variation.
-
-[Table 1]{.underline} summarizes variables considered and retained in the preferred specification.
+MSOAs offer a balance between spatial resolution and data stability, avoiding the volatility associated with smaller geographies while preserving meaningful spatial variation. The table below summarizes variables retained in the preferred specification.
 
 | Variable | Source | Methodology & assumptions |
 |---------------------|------------------|---------------------------------|
-| Annual electricity consumption (kWh) | DESNZ | MSOA mean domestic electricity consumption per meter (2023) |
-| Annual gas consumption (kWh) | DESNZ | MSOA mean domestic gas consumption per meter (2023) |
-| Electricity & gas prices | Ofgem | National average price cap values (incl. VAT), Jan–Mar 2024 |
+| Annual electricity consumption (kWh) | @desnz_msoa_consumption_2025 | MSOA mean domestic electricity consumption per meter |
+| Annual gas consumption (kWh) | @desnz_msoa_consumption_2025 | MSOA mean domestic gas consumption per meter |
+| Electricity & gas prices | @ofgem_price_cap_2024 | National average price cap values (incl. VAT), Jan–Mar 2024 |
 | Annual energy cost (dependent variable) | Author | Electricity + gas consumption × unit prices + standing charges |
-| Share of pre-1945 housing | VOA | Proxy for legacy housing inefficiency |
-| Share of EPC D–G dwellings | EPC Register | Proxy for poor energy efficiency (2019–2025) |
-| Median floor area (log) | EPC Register | Logged to address skewness |
-| Median household income (log) | ONS | Logged MSOA income (2023) |
-| Share of detached dwellings | Census 2021 | Captures structural heat loss |
-| Share of households with 4+ occupants | Census 2021 | Captures household size |
-| Heating type shares | Census 2021 | Electric-only, solid/liquid fuels, renewable networks |
-| Urban–rural indicator | ONS | Binary classification |
-| Region | ONS | Region fixed effects |
+| Share of pre-1945 housing | @voa_2021 | Proxy for legacy housing inefficiency |
+| Share of EPC D–G dwellings | EPC Register, @epc_2025 | Proxy for poor energy efficiency (2019–2025) |
+| Median floor area (log) | EPC Register, @epc_2025 | Logged to address skewness |
+| Median household income (log) | @ons_income_msoa_2024 | Logged median household income at MSOA-level |
+| Share of detached dwellings | @ons_accomodation_2022 | Captures structural heat loss |
+| Share of households with 4+ occupants | @ons_hh_size_2022 | Captures household size |
+| Heating type shares | @ons_census_heating_2022 | Electric-only, solid/liquid fuels, renewable networks |
+| Urban–rural indicator | @ons_ruralurban_2021 | Binary classification |
+| Region | @ons_regions_2022 | Region fixed effects |
 
 We assume that energy prices are nationally regulated and spatially uniform, reflecting Ofgem price caps. Spatial variation in observed energy costs therefore arises from differences in consumption, housing efficiency and heating systems rather than local price-setting.
 
 #### 2.2 Exploratory analysis of data variables
 
-Exploratory analysis ([Figure A1]{.underline}) highlights substantial right-skewness in electricity consumption and total energy costs, driven by a subset of MSOAs with high electricity reliance and larger dwellings. As household income is also right-skewed, log-transformation is applied to stabilise variance.
-
-Heating system variables are unevenly distributed across space but are retained, as they represent structurally distinct energy systems with implications for electricity demand and exposure to high prices.
+Exploratory analysis ([Figure A1]{.underline}) highlights substantial right-skewness in electricity costs and total energy costs, driven by a subset of MSOAs with high electricity reliance and larger dwellings. As household income is also right-skewed, log-transformation is applied. Heating system variables are unevenly distributed across space but are retained, as they represent structurally distinct energy systems with implications for electricity demand and exposure to high prices.
 
 ```{python}
 #| echo: false
@@ -2102,7 +2122,7 @@ numeric_cols = reg_df[[
             "share_hh_4plus",
             "share_electric",
             "share_low_central",
-            "share_network_renewable"]]
+            "share_renewable"]]
 
 # Convert to long format
 numeric_long = numeric_cols.melt(var_name='variable', value_name='value')
@@ -2152,7 +2172,9 @@ sns.despine()
 plt.show()
 ```
 
-Exploratory plots of the dependent variable against key predictors ([Figure A2]{.underline}) subsequently inform variable selection and specification.
+{{< pagebreak >}}
+
+Exploratory plots of the dependent variable against key predictors ([Figure A2]{.underline}) inform variable selection and specification.
 
 ```{python}
 #| echo: false
@@ -2205,7 +2227,7 @@ for i, predictor in enumerate(predictors):
     )
 
     # Scale font sizes for the 8x6 footprint
-    axes[i].set_title(f"Cost vs \n{predictor}", fontsize=9, fontweight='bold')
+    axes[i].set_title(f"Cost vs \n{predictor}", fontsize=9)
     axes[i].set_xlabel(axis_labels[predictor], fontsize=8)
     axes[i].set_ylabel("Annual Energy Cost", fontsize=8)
     axes[i].tick_params(labelsize=7)
@@ -2279,18 +2301,211 @@ Across all specifications, **structural housing characteristics and household co
 
 -   **Dwelling size and housing type** are also strongly associated with energy costs. Larger median floor areas and a higher share of detached housing are linked to higher expenditure, reflecting greater baseline energy demand.
 
--   **Household composition plays a particularly important role.** MSOAs with a higher share of households containing four or more occupants exhibit substantially higher energy costs across all models, with this variable showing the largest coefficients throughout.
+-   **Household composition** also plays an important role. MSOAs with a higher share of households containing four or more persons exhibit substantially higher energy costs across all models, with this variable showing the largest coefficients throughout.
 
--   The inclusion of **fuel mix variables** materially improves explanatory power, with the adjusted $R^2$ increasing from $0.572$ to $0.713$. Electric-only heating is associated with significantly higher energy costs, while solid and liquid fuels and networked renewables are associated with lower average expenditure.
-
--   The **urban–rural indicator** becomes substantively weak once housing and fuel characteristics are included, suggesting that observed urban–rural differences primarily reflect housing stock composition rather than settlement type.
+-   The inclusion of **fuel mix variables** materially improves explanatory power, with the adjusted $R^2$ increasing from $0.572$ to $0.713$. Electric-only heating is associated with significantly higher energy costs, while solid and liquid fuels and renewables are associated with lower average expenditure.
 
 -   Adding **region fixed effects** further improves model fit (final adjusted $R^2$ = $0.745$), likely capturing residual climatic variation and regional housing patterns, without materially altering the main coefficient estimates.
 
 ```{python}
 #| echo: false
 #| warning: false
+import statsmodels.api as sm
+from statsmodels.iolib.summary2 import summary_col 
 
+# Model 1
+X_1 = reg_df[
+    ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income", 
+     "share_detached", "share_hh_4plus"]
+]
+X_1 = sm.add_constant(X_1)
+y = reg_df["annual_energy_cost"]
+model_1 = sm.OLS(y, X_1).fit(cov_type="HC1")
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# Next, we test if we can improve explanatory power by including the fuel mix
+fuel_cols = [
+    "share_electric",
+    "share_solid_liquid",
+    "share_low_central",
+    "share_renewable"
+]
+
+X_2 = reg_df[
+    ["share_pre1945",  "share_epc_DG", "log_median_floor_area", "log_income", 
+     "share_detached", "share_hh_4plus"] + fuel_cols
+]
+X_2 = sm.add_constant(X_2)
+model_2 = sm.OLS(y, X_2).fit(cov_type="HC1")
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# Next, we test if there is any significance of urban / rural effects
+reg_df["urban_dummy"] = (reg_df["Ruralurban"] == "Urban").astype(int)
+
+X_3 = reg_df[
+    ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
+     "share_detached", "share_hh_4plus", "urban_dummy"] + fuel_cols 
+]
+X_3 = sm.add_constant(X_3)
+model_3 = sm.OLS(y, X_3).fit(cov_type="HC1")
+```
+
+```{python}
+#| echo: false
+#| warning: false
+# last, we control for any regional effects 
+region_dummies = pd.get_dummies(
+    reg_df["region"],
+    prefix="reg",
+    drop_first=True
+)
+
+X_4 = pd.concat(
+    [
+        reg_df[
+            ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
+             "share_detached", "share_hh_4plus", "urban_dummy"]
+            + fuel_cols
+        ],
+        region_dummies
+    ],
+    axis=1
+)
+
+X_4 = sm.add_constant(X_4).astype(float)
+model_4 = sm.OLS(y, X_4).fit(cov_type="HC1")
+```
+
+{{< pagebreak >}}
+
+```{python}
+#| echo: false
+#| warning: false
+from statsmodels.iolib.summary2 import summary_col
+from IPython.display import display, Latex
+import dataframe_image as dfi
+
+summary = summary_col(
+    results=[model_1, model_2, model_3, model_4],
+    model_names=["Base", "Fuel Mix", "Urban/Rural", "Region FE"],
+    stars=True,
+    float_format="%0.3f",
+    info_dict={"N": lambda x: f"{int(x.nobs)}"}
+)
+
+df = summary.tables[0]
+```
+
+```{python}
+#| echo: false
+#| warning: false
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+import matplotlib as mpl
+
+from matplotlib import font_manager
+
+font_path = r"C:\Users\benja\Documents\CASA\CASA\Quantitative Methods\CASA0007-Quantitative-Methods\CASA_QM_Assessment\fonts\SourceSerif4-VariableFont_opsz,wght.ttf"
+font_manager.fontManager.addfont(font_path)
+
+with mpl.rc_context({
+    "font.family": "serif",
+    "font.serif": ["Source Serif 4"],
+}):
+
+    fig, ax = plt.subplots(figsize=(6, 9.5))
+    ax.axis("off")
+    n_rows = len(df.index)
+    
+    # Create table
+    table = ax.table(
+        cellText=df.values,
+        colLabels=df.columns,
+        rowLabels=df.index,
+        loc="upper center",
+        cellLoc="center"
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(9)
+    
+    # Slightly reduce vertical scaling to avoid overlap
+    table.scale(0.95, 0.98)
+    
+    
+    # Remove all borders
+    for cell in table.get_celld().values():
+        cell.visible_edges = ""
+        cell.set_linewidth(0)
+    
+    # Header rules (top + bottom)
+    n_cols = len(df.columns)
+    for col in range(n_cols):
+        cell = table[(0, col)]
+        cell.visible_edges = "TB"
+        cell.set_linewidth(0.8)
+    
+    # Horizontal rule above diagnostics
+    rule_row = n_rows - 2
+    for col in range(n_cols):
+        cell = table[(rule_row, col)]
+        cell.visible_edges += "T"
+        cell.set_linewidth(0.8)
+    
+    # Alignment
+    for (row, col), cell in table.get_celld().items():
+        cell.get_text().set_ha("left")
+    
+    # Title (figure-level, not axis-level)
+    fig.text(
+        0.5, 0.99,
+        "Summary of OLS Model Results",
+        ha="center",
+        va="top",
+        fontsize=11,
+        family="serif"
+    )
+    
+    # Footer
+    fig.text(
+        0.03, 0.01,
+        "Standard errors in parentheses.\n"
+        "* p<0.1, ** p<0.05, *** p<0.01",
+        ha="left",
+        va="bottom",
+        fontsize=9,
+        family="serif"
+    )
+    
+    # Reserve margins explicitly (VERY important)
+    plt.subplots_adjust(
+        left = 0.25,
+        top=0.98,
+        bottom=0.045
+    )
+    
+    # Save
+    plt.savefig(
+        "regression_table.png",
+        dpi=300
+    )
+    plt.close()
+```
+
+![](regression_table.png)
+
+{{< pagebreak >}}
+
+Residual diagnostics ([Figure A3)]{.underline} indicate satisfactory linearity and variance homogeneity, with mild right-skewness. Checks reveal a small number of high-cost MSOAs that tend to have larger dwellings and higher reliance on electricity.
+
+```{python}
+#| echo: false
+#| warning: false
 # Set Regression diagnostics function - Developed with support from ChatGPT
 def plot_regression_diagnostics(model, X):
     """
@@ -2324,7 +2539,7 @@ def plot_regression_diagnostics(model, X):
     X_full = X.astype(float)
 
     vif_all = pd.DataFrame({
-        "Variable": X_full.columns,
+        "VIF Summary": X_full.columns,
         "VIF": [
             variance_inflation_factor(X_full.values, i)
             for i in range(X_full.shape[1])
@@ -2333,7 +2548,7 @@ def plot_regression_diagnostics(model, X):
 
     vif_df = (
         vif_all
-        .loc[vif_all["Variable"] != "const"]
+        .loc[vif_all["VIF Summary"] != "const"]
         .sort_values("VIF")
         .reset_index(drop=True)
     )
@@ -2343,7 +2558,7 @@ def plot_regression_diagnostics(model, X):
     # --------------------------------------------------
     # 3. Layout
     # --------------------------------------------------
-    fig = plt.figure(figsize=(8, 7))
+    fig = plt.figure(figsize=(8, 8))
     gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 0.8])
 
     def title(ax, main, sub):
@@ -2473,8 +2688,7 @@ def plot_regression_diagnostics(model, X):
     )
 
     fig.suptitle(
-        "Figure A3: Regression Diagnostics Dashboard\n"
-        "(Adapted from R performance::check_model())",
+        "Figure A3: Regression Diagnostics Dashboard - Adapted from (performance::check_model)",
         x=0.01,
         y=0.975,        # lifted above panel titles
         ha="left",
@@ -2484,104 +2698,9 @@ def plot_regression_diagnostics(model, X):
 
     # Reserve vertical space for suptitle
     fig.tight_layout(rect=[0, 0, 1, 0.99])
-
     plt.show()
+    return(vif_df)
 ```
-
-```{python}
-#| echo: false
-#| warning: false
-import statsmodels.api as sm
-from statsmodels.iolib.summary2 import summary_col 
-
-# Model 1
-X_1 = reg_df[
-    ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income", 
-     "share_detached", "share_hh_4plus"]
-]
-X_1 = sm.add_constant(X_1)
-y = reg_df["annual_energy_cost"]
-
-model_1 = sm.OLS(y, X_1).fit(cov_type="HC1")
-```
-
-```{python}
-#| echo: false
-#| warning: false
-# Next, we test if we can improve explanatory power by including the fuel mix
-fuel_cols = [
-    "share_electric",
-    "share_solid_liquid",
-    "share_low_central",
-    "share_network_renewable"
-]
-
-X_2 = reg_df[
-    ["share_pre1945",  "share_epc_DG", "log_median_floor_area", "log_income", 
-     "share_detached", "share_hh_4plus"] + fuel_cols
-]
-X_2 = sm.add_constant(X_2)
-
-model_2 = sm.OLS(y, X_2).fit(cov_type="HC1")
-```
-
-```{python}
-#| echo: false
-#| warning: false
-# Next, we test if there is any significance of urban / rural effects
-reg_df["urban_dummy"] = (reg_df["Ruralurban"] == "Urban").astype(int)
-
-X_3 = reg_df[
-    ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
-     "share_detached", "share_hh_4plus", "urban_dummy"] + fuel_cols 
-]
-X_3 = sm.add_constant(X_3)
-
-model_3 = sm.OLS(y, X_3).fit(cov_type="HC1")
-```
-
-```{python}
-#| echo: false
-#| warning: false
-# last, we control for any regional effects 
-region_dummies = pd.get_dummies(
-    reg_df["region"],
-    prefix="region",
-    drop_first=True
-)
-
-X_4 = pd.concat(
-    [
-        reg_df[
-            ["share_pre1945", "share_epc_DG", "log_median_floor_area", "log_income",
-             "share_detached", "share_hh_4plus", "urban_dummy"]
-            + fuel_cols
-        ],
-        region_dummies
-    ],
-    axis=1
-)
-
-X_4 = sm.add_constant(X_4).astype(float)
-
-model_4 = sm.OLS(y, X_4).fit(cov_type="HC1")
-print(model_4.summary())
-
-results_table = summary_col(
-    results=[model_1, model_2, model_3, model_4],
-    model_names=["Base_model", "Fuel_Mix", "Rural/Urban", "Region_FE"],
-    stars=True,
-    float_format="%0.3f",
-    info_dict={
-        "N": lambda x: f"{int(x.nobs)}",
-        "R²": lambda x: f"{x.rsquared:.3f}"
-    }
-)
-
-print(results_table)
-```
-
-Residual diagnostics ([Figure A3)]{.underline} indicate satisfactory linearity and variance homogeneity, with mild right-skewness associated with a small number of high-cost MSOAs that tend to have larger dwellings, higher reliance on electricity, and limited gas grid connectivity.
 
 ```{python}
 #| echo: false
@@ -2591,7 +2710,7 @@ plot_regression_diagnostics(model_4, X_4)
 
 ### 5. Unpacking spatial dependence via Spatial Error Model (SEM) and Geographically Weighted Regression (GWR)
 
-Global Moran’s I tests on OLS residuals revealed positive spatial autocorrelation ($I = 0.43$), indicating that neighbouring MSOAs share some unobserved characteristics influencing energy costs.
+Global Moran’s I tests on OLS residuals show positive spatial autocorrelation ($I = 0.43$), indicating that neighbouring MSOAs share some unobserved characteristics influencing energy costs.
 
 ```{python}
 #| echo: false
@@ -2617,7 +2736,9 @@ mi = Moran(ols_resid, w)
 print("Moran's I value  = ", round(mi.I, 2), "with p =" , mi.p_sim)
 ```
 
-To account for this, a Spatial Error Model (SEM) was estimated using maximum likelihood. The SEM identifies strong spatial correlation in the error term $(λ ≈ 0.73)$, consistent with omitted spatially structured factors such as housing typologies, retrofit histories or local infrastructure.
+*Spatial Error Model (SEM)*
+
+To account for this, a Spatial Error Model (SEM) was estimated using maximum likelihood. The SEM identifies strong spatial correlation in the error term $(λ ≈ 0.73)$, consistent with possible omitted spatially structured factors such as housing typologies, retrofit histories or local infrastructure.
 
 ```{python}
 #| echo: false
@@ -2662,15 +2783,26 @@ sem_model = ML_Error(
 print(sem_model.summary)
 ```
 
-The findings are robust: **coefficient signs and magnitudes remain consistent with OLS estimates**. This suggests that while spatially clustered unobserved factors influence energy cost exposure, the core structural relationships are correctly specified.
+Notwithstanding, the findings are robust: **coefficient signs and magnitudes remain consistent with OLS estimates**. This suggests that while spatially clustered unobserved factors influence energy cost exposure, core structural relationships are correctly specified.
 
-"To **explore spatial heterogeneity in coefficients**, Geographically Weighted Regression (GWR) was employed to examine how the impacts of income and housing efficiency vary geographically. An adaptive bandwidth was selected via AICc.
+{{< pagebreak >}}
+
+*Geographically Weighted Regression*
+
+To further **explore spatial heterogeneity in coefficients**, Geographically Weighted Regression (GWR) was employed to examine how the impact of income and housing efficiency vary spatially. An adaptive bandwidth was selected via AICc.
 
 ```{python}
 #| echo: false
 #| warning: false
 #| results: asis
+#| tbl-cap: "Geographically Weighted Regression (GWR) - Model Summary"
 gwr_diagnostics
+```
+
+```{python}
+#| echo: false
+#| warning: false
+#| results: asis
 gwr_summary
 ```
 
@@ -2680,12 +2812,16 @@ Additional findings include:
 
 -   **Efficiency-Driven Areas**: High EPC D–G coefficients indicate that poor housing quality drives costs regardless of household wealth.
 
-While GWR reached an $R^2$ of 0.88, these results serve an exploratory purpose. The elevated fit reflects GWR’s inherent local overfitting and should not be viewed as a formal refutation of the global model’s performance.
+While GWR reached an $R^2$ of 0.88, the elevated fit likely reflects GWR’s inherent local overfitting and results serve an exploratory purpose rather than a formal refutation of the global model’s performance.
 
 ### 6. Reflections and Limitations
 
-This analysis is subject to several limitations. As an ecological study, it cannot capture within-area household heterogeneity or behavioural responses such as under-heating. Prices are assumed spatially uniform, and retrofit history is not directly observed.
+This analysis is subject to several limitations. As an ecological study, it cannot capture within-area household heterogeneity or behavioural responses such as under-heating. Data accuracy is also constrained by availability of EPC submissions which tend to be more sparse in rural areas, and retrofit history is not directly observed. Residual spatial clustering reflects genuine structural heterogeneity rather than model failure.
 
-Residual spatial clustering reflects genuine structural heterogeneity rather than model failure. From an equity perspective, the results underline that exposure to high energy costs is shaped by place-specific housing conditions, not income alone. This reinforces the need for policy approaches that integrate housing efficiency and local context alongside income-based support.
+From an equity perspective, the results underline that exposure to high energy costs is shaped by place-specific housing conditions, not income alone. This reinforces the need for policy approaches that integrate housing efficiency and local context alongside income-based support.
+
+------------------------------------------------------------------------
+
+{{< pagebreak >}}
 
 ## References

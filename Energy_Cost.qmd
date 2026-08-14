@@ -204,13 +204,31 @@ print(f"Match rate: {match_rate:.2%}")
 #| echo: false
 #| warning: false
 #| output: false
-# Drop those without valid matches and report the drop rate 
+# Drop those without valid matches and report the drop rate
 epc_msoa_clean = epc_msoa.dropna(subset=["msoa21cd"]).copy()
 retain_rate = len(epc_msoa_clean) / len(epc_msoa)
 
 epc_msoa_clean["epc_DG"] = (
     epc_msoa_clean["CURRENT_ENERGY_RATING"]
     .isin(["D", "E", "F", "G"])
+    .astype(int)
+)
+
+epc_msoa_clean["epc_AC"] = (
+    epc_msoa_clean["CURRENT_ENERGY_RATING"]
+    .isin(["A", "B", "C"])
+    .astype(int)
+)
+
+epc_msoa_clean["epc_D"] = (
+    epc_msoa_clean["CURRENT_ENERGY_RATING"]
+    .isin(["D"])
+    .astype(int)
+)
+
+epc_msoa_clean["epc_EG"] = (
+    epc_msoa_clean["CURRENT_ENERGY_RATING"]
+    .isin(["E", "F", "G"])
     .astype(int)
 )
 ```
@@ -227,6 +245,9 @@ epc_msoa_agg = (
     .agg(
         mean_epc_score=("CURRENT_ENERGY_EFFICIENCY", "mean"),
         share_epc_DG=("epc_DG", "mean"),
+        share_epc_AC=("epc_AC", "mean"),
+        share_epc_D=("epc_D", "mean"),
+        share_epc_EG=("epc_EG", "mean"),
         n_epcs=("CURRENT_ENERGY_EFFICIENCY", "count"), 
         median_floor_area=("TOTAL_FLOOR_AREA", "median"),
         n_epcs_area=("TOTAL_FLOOR_AREA", "count"))
@@ -719,6 +740,50 @@ msoa_gasgrid["share_not_gas_grid"] = msoa_gasgrid["perc_not_gas_grid"] / 100
 ```
 
 ```{python}
+# List layers first (important!)
+hdd = gpd.read_file(
+    "data/Annual_HDD.gpkg",
+    layer="annual_heating_degree_days_projections_12km"
+)
+
+hdd = hdd.to_crs(27700)
+hdd = hdd[["HDD_25_median", "geometry"]]
+
+# Load MSOA 2021 shapefile 
+msoa_gdf = gpd.read_file(
+    "large/MSOA/MSOA_2021_EW_BFE_V8.shp").to_crs(epsg=27700)
+
+# Rename column to allow for effective matching between shapefile and msoa_agg
+msoa_gdf = msoa_gdf.rename(columns={"MSOA21CD": "MSOA_code"})
+
+inter = gpd.overlay(
+    msoa_gdf,
+    hdd,
+    how="intersection",
+    keep_geom_type=False
+)
+
+# Area in m²
+inter["area"] = inter.geometry.area
+
+# Area-weighted HDD
+inter["hdd_weighted"] = inter["HDD_25_median"] * inter["area"]
+
+msoa_hdd = (
+    inter
+    .groupby(["MSOA_code"])
+    .agg(
+        hdd_sum=("hdd_weighted", "sum"),
+        area=("area", "sum")
+    )
+    .reset_index()
+)
+
+msoa_hdd["HDD_25_median"] = msoa_hdd["hdd_sum"] / msoa_hdd["area"]
+msoa_hdd["HDD_25_median"] = msoa_hdd["HDD_25_median"] / 1000
+```
+
+```{python}
 #| echo: false
 #| warning: false
 #| output: false
@@ -741,7 +806,9 @@ msoa_agg = (
     .merge(housing_shares[["MSOA_code", "share_detached", "share_flats_purpose_built"]],
            on="MSOA_code", how="left")
     .merge(msoa_gasgrid[["MSOA_code", "share_not_gas_grid"]],
-           on="MSOA_code", how="left")  
+           on="MSOA_code", how="left")
+    .merge(msoa_hdd[["MSOA_code", "HDD_25_median"]],
+           on="MSOA_code", how="left") 
     .merge(msoa_rgn[["MSOA_code", "region"]],
            on="MSOA_code", how="left")
     .merge(msoa_rural[["MSOA_code", "Ruralurban"]],
@@ -835,6 +902,7 @@ reg_df = (
             "annual_energy_cost",
             "annual_electricity_cost", 
             "annual_gas_cost",
+             "income_ahc",
             "share_epc_DG",
             "log_median_floor_area",
             "log_income",
@@ -848,6 +916,7 @@ reg_df = (
             "share_solid_liquid",
             "share_low_central",
             "share_renewable",
+            "HDD_25_median",
             "region",
             "Ruralurban"
         ]
@@ -860,12 +929,6 @@ reg_df = (
 ```{python}
 #| echo: false
 #| warning: false
-# Load MSOA 2021 shapefile 
-msoa_gdf = gpd.read_file(
-    "large/MSOA/MSOA_2021_EW_BFE_V8.shp").to_crs(epsg=27700)
-
-# Rename column to allow for effective matching between shapefile and msoa_agg
-msoa_gdf = msoa_gdf.rename(columns={"MSOA21CD": "MSOA_code"})
 
 # Aggregate data to shapefile
 msoa_gdf_merged = (
@@ -913,17 +976,17 @@ from shapely.geometry import Point
 
 cities = pd.DataFrame({
     "city": [
-        "London", "Birmingham", "Leeds", "Manchester", "Liverpool",
+        "London", "Birmingham", "Leeds", "Manchester", 
         "Sheffield", "Newcastle", "Southampton", "Hull", "Oxford",
         "Norwich", "Nottingham", "Plymouth"
     ],
     "x": [
-        530000, 409000, 430000, 384000, 334000,
+        530000, 409000, 430000, 384000, 
         435000, 424000, 442000, 509000, 451000,
         623000, 457000, 248000
     ],
     "y": [
-        180000, 287000, 433000, 398000, 390000,
+        180000, 287000, 433000, 398000, 
         387000, 565000, 113000, 432000, 206000,
         308000, 340000, 54000
     ]
@@ -1710,6 +1773,63 @@ ax.axis("off")
 plt.show()
 ```
 
+```{python}
+london_msoa = gpd.overlay(
+    msoa_gdf_merged,
+    gla,
+    how="intersection",
+    keep_geom_type=False
+)
+
+london_msoa = london_msoa[
+    london_msoa.geom_type.isin(["Polygon", "MultiPolygon"])
+]
+
+fig, ax = plt.subplots(figsize=(5, 6))
+
+# NA areas (grey)
+london_msoa.loc[
+    london_msoa["bivar_color"].isna()
+].plot(
+    ax=ax,
+    color="#e4e4e4",
+    linewidth=0
+)
+
+# Bivariate fill
+london_msoa.loc[
+    london_msoa["bivar_color"].notna()
+].plot(
+    ax=ax,
+    color=london_msoa.loc[
+        london_msoa["bivar_color"].notna(),
+        "bivar_color"
+    ],
+    linewidth=0
+)
+
+# Borough boundaries
+LA.boundary.plot(
+    ax=ax,
+    linewidth=0.4,
+    edgecolor="#2b2b2b"
+)
+
+# GLA boundary
+gla.boundary.plot(
+    ax=ax,
+    linewidth=1.2,
+    edgecolor="black"
+)
+
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_aspect("equal")
+ax.axis("off")
+
+plt.show()
+```
+
 ### What drives differences in household energy costs?
 
 To explore these drivers, we estimate a multivariate model that relates average household energy costs to building age and energy efficiency, dwelling characteristics, household composition and heating infrastructure, while controlling for regional differences. We aim to identify structural factors that are most strongly associated with high energy costs.
@@ -2084,7 +2204,7 @@ The analysis is descriptive and explanatory rather than causal. By focusing on s
 MSOAs offer a balance between spatial resolution and data stability, avoiding the volatility associated with smaller geographies while preserving meaningful spatial variation. The table below summarizes variables retained in the preferred specification.
 
 | Variable | Source | Methodology & assumptions |
-|---------------------|------------------|---------------------------------|
+|---------------------|-------------------|--------------------------------|
 | Annual electricity consumption (kWh) | @desnz_msoa_consumption_2025 | MSOA mean domestic electricity consumption per meter |
 | Annual gas consumption (kWh) | @desnz_msoa_consumption_2025 | MSOA mean domestic gas consumption per meter |
 | Electricity & gas prices | @ofgem_price_cap_2024 | National average price cap values (incl. VAT), Jan–Mar 2024 |
@@ -2825,3 +2945,940 @@ From an equity perspective, the results underline that exposure to high energy c
 {{< pagebreak >}}
 
 ## References
+
+```{python}
+# Load Combined Authorities Area Boundaries
+CA = gpd.read_file(base2 + "Combined_Authorities_December_2023_Boundaries.gpkg").to_crs(epsg=27700)
+
+# Filter for Greater Manchester Area 
+GMA = CA[CA["CAUTH23NM"] == "Greater Manchester"]
+GBA = CA[CA["CAUTH23NM"] == "West Midlands"]
+
+# Load LA across GB and clip to GLA, GMA and GBA
+LA = gpd.read_file(base2 + "/LAD_DEC_2021_GB_BUC.shp").to_crs(epsg=27700)
+LA = gpd.overlay(LA, gla, how="intersection",
+    keep_geom_type=False)
+
+LAD = gpd.read_file(base2 + "Local_Authority_Districts_December_2024_Boundaries_UK_BGC.gpkg").to_crs(epsg=27700)
+MA = gpd.overlay(LAD, GMA, how="intersection",
+    keep_geom_type=False)
+BA = gpd.overlay(LAD, GBA, how="intersection",
+    keep_geom_type=False)
+
+# Prepare Birmingham Inset 
+birmingham_msoa = gpd.overlay(msoa_epc, GBA, how="intersection",
+    keep_geom_type=False)
+
+# Prepare Manchester Inset 
+manchester_msoa = gpd.overlay(msoa_epc, GMA, how="intersection",
+    keep_geom_type=False)
+```
+
+```{python}
+# Creating a ternary map visualisation for EPC data
+import numpy as np
+import colorsys
+import ternary
+import matplotlib.pyplot as plt
+
+# 1. Circular colour mixing
+H_AC = 140 / 360   
+H_D  = 30 / 360   
+H_EG = 0 / 360   
+
+def ternary_rgb_circular(row, val=0.95):
+    w_AC = row["share_epc_AC"]
+    w_D  = row["share_epc_D"]
+    w_EG = row["share_epc_EG"] ** 0.33
+
+    x = (
+        w_AC * np.cos(2*np.pi*H_AC) +
+        w_D  * np.cos(2*np.pi*H_D)  +
+        w_EG * np.cos(2*np.pi*H_EG)
+    )
+    y = (
+        w_AC * np.sin(2*np.pi*H_AC) +
+        w_D  * np.sin(2*np.pi*H_D)  +
+        w_EG * np.sin(2*np.pi*H_EG)
+    )
+
+    hue = (np.arctan2(y, x) / (2*np.pi)) % 1.0
+    # Dynamic saturation makes "pure" areas sharper and "mixed" areas softer
+    purity = max(w_AC, w_D, w_EG) - min(w_AC, w_D, w_EG)
+    sat = 0.3 + (purity * 0.7)
+    
+    return colorsys.hsv_to_rgb(hue, sat, val)
+
+epc_msoa_agg["rgb"] = epc_msoa_agg.apply(
+    ternary_rgb_circular, axis=1
+)
+    
+# 2. Setting up Tenery Data
+epc_msoa_agg_points = list(
+    zip(
+        epc_msoa_agg["share_epc_EG"] * 100,  # left
+        epc_msoa_agg["share_epc_D"] * 100,   # right
+        epc_msoa_agg["share_epc_AC"]* 100,  # top
+    )
+)
+
+# Create Ternary Plot 
+scale = 100
+fig, tax = ternary.figure(scale=scale)
+fig.set_size_inches(6, 6)
+
+scale = 100
+tick_locs = range(0, 101, 10)
+fs = 10
+
+# Scatter plot
+tax.scatter(
+    epc_msoa_agg_points,
+    color=epc_msoa_agg["rgb"],
+    s=8,
+    alpha=0.9
+)
+
+# Customise roatated tick labels 
+# Left Ticks
+for i in tick_locs:
+    tax.annotate(
+        text=str(i),
+        position=[-6.5, 100-i +2.5, 100],
+        rotation=300,
+        fontsize= 9)
+    
+    # add tick lines
+    tax.line(
+        [-1.5 , i+1.5, 100],
+        [0 , i, 100],
+        color='k')
+    
+# add right ticks
+for i in tick_locs:
+    tax.annotate(
+        text=str(i),
+        position=[103.5-i, i-1, 0],
+        rotation=0,
+        fontsize=9
+    )
+    # add tick lines
+    tax.line(
+        [100-i , i, 0],
+        [101.5-i , i, 0],
+        color='k'
+    )
+    
+# Add bottom ticks 
+for i in tick_locs:
+    tax.annotate(
+        text=str(i),
+        position=[i - 0.5, -6.5, 90],
+        rotation=60,
+        fontsize=9
+    )
+    # add tick lines
+    tax.line(
+        [i , -1.5, 90],
+        [i , 0, 90],
+        color='k'
+    )    
+    
+# Axis labels
+tax.left_axis_label(" ⟵ Efficient (EPC A–C %)", fontsize=11, fontweight="bold", offset=0.12)
+tax.right_axis_label("⟵ Borderline (EPC D) ", fontsize=11, fontweight="bold", offset=0.12)
+tax.bottom_axis_label("Inefficient (EPC E–G) ⟶", fontsize=11, fontweight="bold", offset=-0.01)
+
+# ---- triangle + grid ----
+tax.boundary(linewidth=1.2)
+tax.gridlines(color="#899499", multiple=10, linewidth=0.9)
+tax.gridlines(color="lightgrey", multiple=5, linewidth=0.5)
+#tax.ticks(axis="lbr", multiple=10, linewidth=0.9)
+
+# ---- cosmetics ----
+tax.get_axes().patch.set_alpha(0)
+for spine in tax.get_axes().spines.values():
+    spine.set_visible(False)
+
+# Formatting
+tax.clear_matplotlib_ticks()
+tax.get_axes().set_aspect("equal")
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+import matplotlib.patheffects as pe
+from matplotlib.patches import Rectangle
+
+# Merge to MSOA polygon layer
+msoa_epc = msoa_gdf.merge(
+    epc_msoa_agg[["MSOA_code", "rgb"]],
+    on="MSOA_code",
+    how="left"
+)
+
+msoa_epc["rgb"] = msoa_epc["rgb"].apply(
+    lambda x: x if isinstance(x, (tuple, list)) else (0.9, 0.9, 0.9)
+)
+
+def draw_inset_box(ax, lw=1.0):
+    rect = Rectangle(
+        (0, 0), 1, 1,
+        transform=ax.transAxes,
+        fill=False,
+        linewidth=lw,
+        edgecolor="black",
+        zorder=10
+    )
+    ax.add_patch(rect)
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 11))
+
+# Plot scotland area 
+scotland_clip.plot(
+    ax=ax,
+    color="#e4e4e4",
+    linewidth=0,
+    rasterized=True,
+    zorder=0)
+
+# EPC Data by RGB
+msoa_epc.plot(
+    ax=ax,
+    color=msoa_epc["rgb"],
+    linewidth=0,
+    alpha=0.9,
+    edgecolor="none"
+)
+
+# Region boundaries & coastline
+region_gdf.boundary.plot(
+    ax=ax,
+    linewidth=1,
+    edgecolor="#2b2b2b",
+    alpha=0.95,
+    zorder=3
+)
+
+# MSOA Boundaries
+msoa_gdf.loc[
+    msoa_gdf["MSOA_code"].str.startswith("E")
+].dissolve().boundary.plot(
+    ax=ax,
+    linewidth=0.6,
+    edgecolor="#2b2b2b",
+    zorder=4
+)
+
+# City markers
+cities_gdf.plot(
+    ax=ax,
+    color="white",
+    edgecolor="black",
+    linewidth=0.6,
+    rasterized=True, 
+    markersize=38,
+    zorder=6
+)
+
+# City labels (with white halo)
+for _, row in cities_gdf.iterrows():
+    ax.text(
+        row.geometry.x + 6000,
+        row.geometry.y + 6000,
+        row["city"],
+        fontsize=11,
+        color="black",
+        zorder=7,
+        path_effects=[
+            pe.withStroke(linewidth=3, foreground="white")
+        ]
+    )
+
+# Titles & caption
+fig.suptitle(
+    "How does housing energy efficiency vary across England?",
+    x=0.01, y=0.96,
+    ha="left",
+    fontsize=19,
+    fontweight="bold"
+)
+
+fig.text(
+    0.01, 0.915,
+    "Percentage of homes with EPC rating (A-C), (D), and (E-G) (%) by MSOA",
+    fontsize=15,
+    ha="left"
+)
+
+fig.text(
+    0.01, 0.54,
+    "How to read this plot?",
+    fontsize=14,
+    ha="left", 
+    fontweight="bold"
+)
+
+fig.text(
+    0.01, 0.42,
+    "This ternary plot simultaneously shows\n"
+    "the percentage of households (%) with \n"
+    "Energy Performance Certificates in three \n"
+    "categories - (A-C), (D), (E-G). The \n" 
+    "color reflects the composition across\n"
+    "all MSOAs and can be used as a legend.",
+    fontsize=13.5,
+    ha="left"
+)
+
+fig.text(
+    0.01, 0,
+    "Source: Ministry of Housing, Communities and Local Government (MHCLG)\n"
+    "MSOAs with insufficient records and areas outside England are shown in grey.",
+    fontsize=13,
+    ha="left"
+)
+
+ax.set_axis_off()
+
+# Drawing ternary legend here
+ax_tern = fig.add_axes(
+    [0.01, 0.59, 0.33, 0.30],  # [left, bottom, width, height]
+    zorder=10
+)
+
+# Prepare ternary data (already %)
+epc_msoa_agg_points = list(
+    zip(
+        epc_msoa_agg["share_epc_EG"] * 100,  # left
+        epc_msoa_agg["share_epc_D"] * 100,   # right
+        epc_msoa_agg["share_epc_AC"]* 100,  # top
+    )
+)
+
+# Create ternary on the inset axes
+tax = ternary.TernaryAxesSubplot(ax=ax_tern, scale=100)
+scale = 100
+tick_locs = range(0, 101, 10)
+fs = 10
+
+tax.scatter(
+    epc_msoa_agg_points,
+    color=epc_msoa_agg["rgb"],
+    s=8,
+    alpha=0.8,
+    rasterized=True
+)
+
+# Triangle boundary
+tax.boundary(linewidth=1.2)
+
+# Gridlines at 20%
+tax.gridlines(
+    color="#899499",
+    multiple=20,
+    linewidth=0.9
+)
+
+# Minor Gridlines at 5%
+tax.gridlines(
+    color="lightgrey",
+    multiple=5,
+    linewidth=0.5
+)
+
+# Customise roatated tick labels 
+# Left Ticks
+for i in tick_locs:
+    tax.annotate(
+        text=str(i),
+        position=[-6.5, 100-i +2.5, 100],
+        rotation=300,
+        fontsize= 9)
+    
+    # add tick lines
+    tax.line(
+        [-1.5 , i+1.5, 100],
+        [0 , i, 100],
+        color='k')
+    
+# add right ticks
+for i in tick_locs:
+    tax.annotate(
+        text=str(i),
+        position=[103.5-i, i-1, 0],
+        rotation=0,
+        fontsize=9
+    )
+    # add tick lines
+    tax.line(
+        [100-i , i, 0],
+        [101.5-i , i, 0],
+        color='k'
+    )
+    
+# Add bottom ticks 
+for i in tick_locs:
+    tax.annotate(
+        text=str(i),
+        position=[i - 0.5, -6.5, 90],
+        rotation=60,
+        fontsize=9
+    )
+    # add tick lines
+    tax.line(
+        [i , -1.5, 90],
+        [i , 0, 90],
+        color='k'
+    )    
+
+# Remove matplotlib axes clutter
+tax.clear_matplotlib_ticks()
+tax.get_axes().set_xticks([])
+tax.get_axes().set_yticks([])
+
+# Axis labels
+tax.left_axis_label(" ⟵ Efficient (EPC A–C %)", fontsize=11, fontweight="bold", offset=0.14)
+tax.right_axis_label("⟵ Borderline (EPC D %)", fontsize=11, fontweight="bold", offset=0.14)
+tax.bottom_axis_label("Inefficient (EPC E–G %) ⟶", fontsize=11, fontweight="bold", offset= 0.02)
+
+# Transparent background (key Dutch-style touch)
+tax.get_axes().patch.set_alpha(0)
+
+# Remove frame
+for spine in tax.get_axes().spines.values():
+    spine.set_visible(False)
+
+#============================================================    
+# Add in London Inset 
+# London inset (TOP RIGHT)
+london_msoa = gpd.overlay(msoa_epc, gla, how="intersection",
+    keep_geom_type=False)
+
+axins = fig.add_axes([0.79, 0.05, 0.22, 0.20])
+
+draw_inset_box(axins, lw=1.1)
+for spine in axins.spines.values():
+    spine.set_linewidth(1.0)
+    spine.set_edgecolor("black")
+
+london_msoa.plot(
+    ax=axins,
+    color=london_msoa["rgb"],
+    linewidth=0,
+    rasterized=True
+)
+
+LA.boundary.plot(
+    ax=axins,
+    linewidth=0.3,
+    edgecolor="black",
+    zorder=3
+)
+
+gla.boundary.plot(
+    ax=axins,
+    linewidth=1.2,
+    edgecolor="black"
+)
+
+axins.set_xticks([])
+axins.set_yticks([])
+axins.set_aspect("equal")
+axins.set_title(
+    "London (Greater London)",
+    fontsize=11,
+    loc="center",
+    fontweight="bold"
+)
+#===================================
+ax_brm = fig.add_axes([0.79, 0.46, 0.22, 0.20])  
+
+for spine in ax_brm.spines.values():
+    spine.set_linewidth(1.2)
+    spine.set_edgecolor("black")
+
+birmingham_msoa.plot(
+    ax=ax_brm,
+    color=birmingham_msoa["rgb"],
+    linewidth=0,
+    edgecolor="none"
+)
+
+GBA.boundary.plot(
+    ax=ax_brm,
+    linewidth=1.2,
+    color="black"
+)
+
+BA.boundary.plot(
+    ax=ax_brm,
+    linewidth=0.3,
+    edgecolor="black"
+)
+draw_inset_box(ax_brm, lw=1.1)
+
+ax_brm.set_title(
+    "Birmingham (West Midlands)",
+    fontsize=11,
+    loc="center",
+    fontweight="bold"
+)
+
+ax_brm.set_axis_off()
+#========================================================
+ax_mcr = fig.add_axes([0.79, 0.69, 0.22, 0.20])
+
+for spine in ax_mcr.spines.values():
+    spine.set_linewidth(1.0)
+    spine.set_edgecolor("black")
+
+manchester_msoa.plot(
+    ax=ax_mcr,
+    color=manchester_msoa["rgb"],
+    linewidth=0,
+    edgecolor="none"
+)
+
+GMA.boundary.plot(
+    ax=ax_mcr,
+    linewidth=1.2,
+    color="black"
+)
+
+MA.boundary.plot(
+    ax=ax_mcr,
+    linewidth=0.3,
+    edgecolor="black"
+)
+draw_inset_box(ax_mcr, lw=1.1)
+
+ax_mcr.set_title(
+    "Manchester (Greater Manchester)",
+    fontsize=11,
+    loc="center",
+    fontweight="bold"
+)
+
+ax_mcr.set_axis_off()
+#===============================================
+
+fig.subplots_adjust(left=0.04, right=0.96, top=0.95, bottom=0.05)
+plt.show()
+```
+
+```{python}
+import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+import matplotlib.patheffects as pe
+
+# ------------------------------------------------------------
+# 1. Construct bivariate classes (3×3 quantiles, NA-safe)
+# ------------------------------------------------------------
+
+msoa_gdf_merged["cost_q"] = pd.qcut(
+    msoa_gdf_merged["annual_energy_cost"],
+    q=3,
+    labels=[1, 2, 3]
+)
+
+msoa_gdf_merged["income_q"] = pd.qcut(
+    msoa_gdf_merged["income_ahc"],
+    q=3,
+    labels=[1, 2, 3]
+)
+
+msoa_gdf_merged["bivar_class"] = (
+    (4 - msoa_gdf_merged["income_q"].astype("Int64")) * 10
+    + msoa_gdf_merged["cost_q"].astype("Int64")
+)
+
+# ------------------------------------------------------------
+# 2. DkViolet2-inspired 3×3 palette (print-safe)
+# ------------------------------------------------------------
+
+bivar_colors_dkviolet2 = {
+    11: "#d2deee",
+    12: "#d798a3",
+    13: "#d72528",
+    21: "#84a6d9",
+    22: "#877194",
+    23: "#871c25",
+    31: "#366ec3",
+    32: "#374b85",
+    33: "#371321",
+}
+
+msoa_gdf_merged["bivar_color"] = (
+    msoa_gdf_merged["bivar_class"]
+    .map(bivar_colors_dkviolet2)
+)
+
+# ------------------------------------------------------------
+# 3. Figure + base layers (Scotland & Wales in grey)
+# ------------------------------------------------------------
+
+fig, ax = plt.subplots(figsize=(8, 10))
+
+# Scotland
+scotland_clip.plot(
+    ax=ax,
+    color="#e4e4e4",
+    linewidth=0,
+    rasterized=True,
+    zorder=0
+)
+
+# Wales + non-England MSOAs
+msoa_gdf.loc[
+    ~msoa_gdf["MSOA_code"].str.startswith("E")
+].plot(
+    ax=ax,
+    color="#e4e4e4",
+    linewidth=0,
+    rasterized=True,
+    zorder=1
+)
+
+# ------------------------------------------------------------
+# 4. England MSOAs (NA grey + bivariate fill)
+# ------------------------------------------------------------
+
+# NA MSOAs
+msoa_gdf_merged.loc[
+    msoa_gdf_merged["bivar_color"].isna()
+].plot(
+    ax=ax,
+    color="#e0e0e0",
+    linewidth=0,
+    rasterized=True,
+    zorder=1
+)
+
+# Bivariate MSOAs
+msoa_gdf_merged.loc[
+    msoa_gdf_merged["bivar_color"].notna()
+].plot(
+    ax=ax,
+    color=msoa_gdf_merged.loc[
+        msoa_gdf_merged["bivar_color"].notna(),
+        "bivar_color"
+    ],
+    linewidth=0,
+    alpha=0.85,
+    rasterized=True,
+    zorder=2
+)
+
+# ------------------------------------------------------------
+# 5. Region boundaries & England coastline
+# ------------------------------------------------------------
+
+region_gdf.boundary.plot(
+    ax=ax,
+    linewidth=1,
+    edgecolor="#2b2b2b",
+    alpha=0.95,
+    zorder=3
+)
+
+msoa_gdf.loc[
+    msoa_gdf["MSOA_code"].str.startswith("E")
+].dissolve().boundary.plot(
+    ax=ax,
+    linewidth=0.6,
+    edgecolor="#2b2b2b",
+    zorder=4
+)
+
+# ------------------------------------------------------------
+# 6. Cities (points + halo labels)
+# ------------------------------------------------------------
+
+cities_gdf.plot(
+    ax=ax,
+    color="white",
+    edgecolor="black",
+    linewidth=0.6,
+    markersize=35,
+    rasterized=True,
+    zorder=6
+)
+
+for _, row in cities_gdf.iterrows():
+    ax.text(
+        row.geometry.x + 6000,
+        row.geometry.y + 6000,
+        row["city"],
+        fontsize=10,
+        color="black",
+        zorder=7,
+        path_effects=[
+            pe.withStroke(linewidth=3, foreground="white")
+        ]
+    )
+
+# ------------------------------------------------------------
+# 7. London bivariate inset
+# ------------------------------------------------------------
+
+london_msoa = gpd.overlay(
+    msoa_gdf_merged,
+    gla,
+    how="intersection",
+    keep_geom_type=False
+)
+london_msoa = london_msoa[
+    london_msoa.geom_type.isin(["Polygon", "MultiPolygon"])
+]
+
+birmingham_msoa = gpd.overlay(
+    msoa_gdf_merged,
+    GBA,
+    how="intersection",
+    keep_geom_type=False
+)
+birmingham_msoa = birmingham_msoa[
+    birmingham_msoa.geom_type.isin(["Polygon", "MultiPolygon"])
+]
+
+manchester_msoa = gpd.overlay(
+    msoa_gdf_merged,
+    GMA,
+    how="intersection",
+    keep_geom_type=False
+)
+manchester_msoa = manchester_msoa[
+    manchester_msoa.geom_type.isin(["Polygon", "MultiPolygon"])
+]
+
+# Add in London Inset 
+# London inset (TOP RIGHT)
+axins = fig.add_axes([0.79, 0.05, 0.23, 0.22])
+
+draw_inset_box(axins, lw=1.1)
+for spine in axins.spines.values():
+    spine.set_linewidth(1.0)
+    spine.set_edgecolor("black")
+
+# Bivariate
+london_msoa.loc[
+    london_msoa["bivar_color"].notna()
+].plot(
+    ax=axins,
+    color=london_msoa.loc[
+        london_msoa["bivar_color"].notna(),
+        "bivar_color"
+    ],
+    linewidth=0,
+    alpha=0.85,
+    rasterized=True
+)
+
+# NA
+london_msoa.loc[
+    london_msoa["bivar_color"].isna()
+].plot(
+    ax=axins,
+    color="#e0e0e0",
+    linewidth=0,
+    rasterized=True
+)
+
+LA.boundary.plot(
+    ax=axins,
+    linewidth=0.3,
+    edgecolor="black",
+    zorder=3
+)
+
+gla.boundary.plot(
+    ax=axins,
+    linewidth=1.2,
+    edgecolor="black"
+)
+
+axins.set_xticks([])
+axins.set_yticks([])
+axins.set_aspect("equal")
+axins.set_title(
+    "London (Greater London)",
+    fontsize=11,
+    loc="center",
+    fontweight="bold"
+)
+#===================================
+ax_brm = fig.add_axes([0.79, 0.52, 0.23, 0.22])  
+
+for spine in ax_brm.spines.values():
+    spine.set_linewidth(1.2)
+    spine.set_edgecolor("black")
+
+# Bivariate
+birmingham_msoa.loc[
+    birmingham_msoa["bivar_color"].notna()
+].plot(
+    ax=ax_brm,
+    color=birmingham_msoa.loc[
+        birmingham_msoa["bivar_color"].notna(),
+        "bivar_color"
+    ],
+    linewidth=0,
+    alpha=0.85,
+    rasterized=True
+)
+
+# NA
+birmingham_msoa.loc[
+    birmingham_msoa["bivar_color"].isna()
+].plot(
+    ax=ax_brm,
+    color="#e0e0e0",
+    linewidth=0,
+    rasterized=True
+)
+
+GBA.boundary.plot(
+    ax=ax_brm,
+    linewidth=1.2,
+    color="black"
+)
+
+BA.boundary.plot(
+    ax=ax_brm,
+    linewidth=0.3,
+    edgecolor="black"
+)
+draw_inset_box(ax_brm, lw=1.1)
+
+ax_brm.set_title(
+    "Birmingham (West Midlands)",
+    fontsize=11,
+    loc="center",
+    fontweight="bold"
+)
+
+ax_brm.set_axis_off()
+#========================================================
+ax_mcr = fig.add_axes([0.79, 0.69, 0.23, 0.22])
+
+for spine in ax_mcr.spines.values():
+    spine.set_linewidth(1.0)
+    spine.set_edgecolor("black")
+
+# Bivariate
+manchester_msoa.loc[
+    manchester_msoa["bivar_color"].notna()
+].plot(
+    ax=ax_mcr,
+    color=manchester_msoa.loc[
+        manchester_msoa["bivar_color"].notna(),
+        "bivar_color"
+    ],
+    linewidth=0,
+    alpha=0.85,
+    rasterized=True
+)
+
+# NA
+manchester_msoa.loc[
+    manchester_msoa["bivar_color"].isna()
+].plot(
+    ax=ax_mcr,
+    color="#e0e0e0",
+    linewidth=0,
+    rasterized=True
+)
+
+GMA.boundary.plot(
+    ax=ax_mcr,
+    linewidth=1.2,
+    color="black"
+)
+
+MA.boundary.plot(
+    ax=ax_mcr,
+    linewidth=0.3,
+    edgecolor="black"
+)
+draw_inset_box(ax_mcr, lw=1.1)
+
+ax_mcr.set_title(
+    "Manchester (Greater Manchester)",
+    fontsize=11,
+    loc="center",
+    fontweight="bold"
+)
+
+ax_mcr.set_axis_off()
+
+# ------------------------------------------------------------
+# 8. Bivariate legend (TOP LEFT)
+# ------------------------------------------------------------
+
+legend_ax = fig.add_axes([0.01, 0.63, 0.23, 0.21])
+legend_ax.set_xlim(0, 3)
+legend_ax.set_ylim(0, 3)
+
+for x in range(3):
+    for y in range(3):
+        key = (x + 1) * 10 + (y + 1)
+        legend_ax.add_patch(
+            Rectangle(
+                (x, y), 1, 1,
+                facecolor=bivar_colors_dkviolet2[key],
+                edgecolor="none", 
+                alpha=0.85
+            )
+        )
+
+legend_ax.set_xticks([0.5, 1.5, 2.5])
+legend_ax.set_yticks([0.5, 1.5, 2.5])
+
+legend_ax.set_xticklabels(["High", "Middle", "Low"], fontsize=10)
+legend_ax.set_yticklabels(["Low", "Middle", "High"], fontsize=10)
+
+legend_ax.set_xlabel("⟵ Household income (AHC)", fontsize=11)
+legend_ax.set_ylabel("Annual energy cost ⟶", fontsize=11)
+
+legend_ax.tick_params(length=0)
+legend_ax.spines[:].set_visible(False)
+
+legend_ax.text(
+    0.7, 3.2,
+    "Legend",
+    fontsize=11,
+    fontweight="bold"
+)
+
+# ------------------------------------------------------------
+# 9. Final cleanup
+# ------------------------------------------------------------
+
+# Titles & caption
+fig.suptitle(
+    "How does energy cost x income vary across England?",
+    x=0.01, y=0.95,
+    ha="left",
+    fontsize=16,
+    fontweight="bold"
+)
+
+fig.text(
+    0.01, -0.02,
+    "Notes: Average annual household energy costs combine gas and electricity expenditure at MSOA level.\n"
+    "Income reflects equivalised household income after housing costs from Census 2021. \n"
+    "Energy consumption based on DESNZ sub-national statistics; prices follow Ofgem tariff caps.\n"
+    "MSOAs with insufficient records and areas outside England are shown in grey.",
+    fontsize=11,
+    ha="left"
+)
+
+ax.axis("off")
+fig.subplots_adjust(left=0.04, right=0.96, top=0.95, bottom=0.05)
+plt.show()
+```

@@ -2859,16 +2859,11 @@ To further **explore spatial heterogeneity in coefficients**, Geographically Wei
 ```{python}
 #| echo: false
 #| warning: false
-#| results: asis
-#| tbl-cap: "Geographically Weighted Regression (GWR) - Model Summary"
-gwr_diagnostics
-```
-
-```{python}
-#| echo: false
-#| warning: false
-#| results: asis
-gwr_summary
+gwr_results.name_x = [
+    "Share pre-1945 homes", "Share EPC D–G homes", "Log median floor area",
+    "Log income", "Share detached homes", "Share households ≥4 persons"
+]
+gwr_results.summary()
 ```
 
 Additional findings include:
@@ -2889,10 +2884,12 @@ From an equity perspective, the results underline that exposure to high energy c
 
 {{< pagebreak >}}
 
+
 ```{python}
 #| echo: false
 #| warning: false
 #| output: false
+
 # Creating a ternary map visualisation for EPC data
 import numpy as np
 import colorsys
